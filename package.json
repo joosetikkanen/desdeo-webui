@@ -27,6 +27,9 @@
     "file-saver": "^2.0.5",
     "immer": "^10.0.2",
     "mathlive": "^0.95.4",
+    "plotly.js": "^2.30.0",
+    "plotly.js-dist": "^2.30.0",
+    "plotly.js-dist-min": "^2.30.0",
     "ts-pattern": "^5.0.5",
     "zod": "^3.21.4"
   },
@@ -48,6 +51,8 @@
     "@tailwindcss/forms": "^0.5.3",
     "@types/echarts": "^4.9.17",
     "@types/file-saver": "^2.0.5",
+    "@types/plotly.js": "^2.29.2",
+    "@types/plotly.js-dist-min": "^2.3.4",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "autoprefixer": "^10.4.14",

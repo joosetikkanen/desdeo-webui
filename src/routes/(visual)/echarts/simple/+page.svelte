@@ -18,6 +18,7 @@
   import ParallelCoordinatePlotBase from "$lib/components/visual/visualization/props-linking/ParallelCoordinatePlot.svelte";
   import BarChart from "$lib/components/visual/visualization/props-linking/BarChart.svelte";
   import MultipleBarCharts from "$lib/components/visual/visualization/props-linking/MultipleBarCharts.svelte";
+  import ScoreBands from "$lib/components/visual/visualization/props-linking/SCOREBands.svelte";
 
   // let data = [
   //   [12.99, 100, 82, "Good"],
@@ -182,6 +183,10 @@
       bind:values={theValues}
       bind:highlightedIndex={high}
     />
+  </div>
+
+  <div style="height:40vh; width:100vh">
+    <ScoreBands />
   </div>
 
   <!-- <div>
