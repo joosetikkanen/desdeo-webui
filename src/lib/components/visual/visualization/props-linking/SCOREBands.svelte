@@ -7,6 +7,7 @@
   onMount(async () => {
     const Plotly = await import("plotly.js-dist-min");
 
+    // Add some sample data
     var trace1 = {
       x: [0, 0.5, 1, 1, 0.5, 0],
       y: [0, 0.4, 0.9, 1, 0.5, 0.1],
@@ -72,6 +73,7 @@
 
     var data = [trace1, trace2, trace3, trace4];
 
+    // The initial layout
     var layout = {
       paper_bgcolor: "rgb(255,255,255)",
       plot_bgcolor: "rgb(229,229,229)",
@@ -98,12 +100,13 @@
       },
       dragmode: false,
     };
-    Plotly.newPlot("plotlyChart", data, layout);
+    Plotly.newPlot("SCOREBands", data, layout);
 
     var slider = document.getElementById("slider");
     var sliderValue = document.getElementById("sliderValue");
     var dropdown = document.getElementById("dropdown");
 
+    // Update SCORE bands when axis is repositioned with slider
     slider.addEventListener("input", function () {
       sliderValue.textContent = this.value;
 
@@ -112,9 +115,10 @@
         dropdown.value
       );
 
-      Plotly.react("plotlyChart", newData, newLayout);
+      Plotly.react("SCOREBands", newData, newLayout);
     });
 
+    // Update the slider value based on the selected objective
     dropdown.addEventListener("change", function () {
       var selectedObjectiveIndex = dropdown.value;
       var updatedSliderValue = trace1.x[selectedObjectiveIndex] * 100;
@@ -123,8 +127,13 @@
       sliderValue.textContent = updatedSliderValue + "";
     });
 
+    /**
+     * Updated the SCORE bands and axis position
+     *
+     * @param sliderValue New axis position given with slider
+     * @param dropdownValue Selected objective axis
+     */
     function getUpdatedChartData(sliderValue, dropdownValue) {
-      // For now, let's just use the existing trace1 as an example
       let updatedTraces = [];
       for (let trace of data) {
         let updatedTrace = { ...trace };
@@ -136,53 +145,12 @@
         updatedTraces.push(updatedTrace);
       }
 
-      /*
-      let newX = [...trace1.x]
-      newX[dropdownValue] = sliderValue / 100
-      newX[newX.length - 1 - dropdownValue] = sliderValue / 100
-
-      var updatedTrace = {
-        x: newX,
-        y: [0, 0.4, 0.9, 1, 0.5, 0.1],
-        fill: "tozerox",
-        fillcolor: "rgba(0,100,80,0.2)",
-        line: { color: "transparent", shape: "spline" },
-        name: "Fair",
-        showlegend: false,
-        type: "scatter",
-      }; */
-
       let newTickVals = [...layout.xaxis.tickvals];
       newTickVals[dropdownValue] = sliderValue / 100;
 
-      var updatedLayout = {
-        paper_bgcolor: "rgb(255,255,255)",
-        plot_bgcolor: "rgb(229,229,229)",
-        xaxis: {
-          gridcolor: "rgb(255,255,255)",
-          range: [0, 1],
-          showgrid: true,
-          showline: false,
-          showticklabels: true,
-          tickcolor: "rgb(127,127,127)",
-          ticks: "outside",
-          zeroline: false,
-          tickvals: newTickVals,
-        },
-        yaxis: {
-          gridcolor: "rgb(255,255,255)",
-          range: [0, 1],
-          showgrid: false,
-          showline: false,
-          showticklabels: false,
-          tickcolor: "rgb(127,127,127)",
-          ticks: "outside",
-          zeroline: false,
-        },
-        dragmode: false,
-      };
+      let updatedLayout = { ...layout };
+      updatedLayout.xaxis.tickvals = newTickVals;
 
-      //trace1 = updatedTrace;
       data = updatedTraces;
       layout = updatedLayout;
       return [updatedTraces, updatedLayout];
@@ -200,7 +168,7 @@
     <input type="range" id="slider" min="0" max="100" value="0" />
     <span id="sliderValue">0</span>
   </div>
-  <div id="plotlyChart" />
+  <div id="SCOREBands" />
 </div>
 
 <style>
