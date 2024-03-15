@@ -2,6 +2,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
+  import { colorPalette } from "$lib/components/visual/constants";
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
@@ -9,10 +10,10 @@
 
     // Add some sample data
     var trace1 = {
-      x: [0, 0.5, 1, 1, 0.5, 0],
-      y: [0, 0.4, 0.9, 1, 0.5, 0.1],
-      fill: "tozerox",
-      fillcolor: "rgba(0,100,80,0.2)",
+      x: [0, 0.5, 1],
+      y: [0, 0.4, 0.9],
+      //fill: "tonexty",
+      //fillcolor: "rgba(0,100,80,0.2)",
       line: { color: "transparent", shape: "spline" },
       name: "Fair",
       showlegend: false,
@@ -20,32 +21,70 @@
     };
 
     var trace2 = {
-      x: [0, 0.5, 1, 1, 0.5, 0],
-      y: [1, 0.5, 0.1, 0, 0.4, 0.9],
-      fill: "tozerox",
-      fillcolor: "rgba(0,176,246,0.2)",
-      line: { color: "transparent", shape: "spline" },
-      name: "Premium",
-      showlegend: false,
-      type: "scatter",
-    };
-
-    var trace3 = {
-      x: [0, 0.5, 1, 1, 0.5, 0],
-      y: [0, 0.9, 0, 0.1, 1, 0.1],
-      fill: "tozerox",
-      fillcolor: "rgba(231,107,243,0.2)",
+      x: [0, 0.5, 1],
+      y: [0.1, 0.5, 1],
+      fill: "tonexty",
+      fillcolor: colorPalette[0] + "aa",
       line: { color: "transparent", shape: "spline" },
       name: "Fair",
       showlegend: false,
       type: "scatter",
     };
 
+    var trace3 = {
+      x: [0, 0.5, 1],
+      y: [0.9, 0.4, 0],
+      line: { color: "transparent", shape: "spline" },
+      name: "Premium",
+      showlegend: false,
+      type: "scatter",
+    };
+
     var trace4 = {
-      x: [0, 0.5, 1, 1, 0.5, 0],
-      y: [0.9, 0, 0.9, 1, 0.1, 1],
-      fill: "tozerox",
-      fillcolor: "rgba(255, 20, 20, 0.2)",
+      x: [0, 0.5, 1],
+      y: [1, 0.5, 0.1],
+      fill: "tonexty",
+      fillcolor: colorPalette[1] + "aa",
+      line: { color: "transparent", shape: "spline" },
+      name: "Premium",
+      showlegend: false,
+      type: "scatter",
+    };
+
+    var trace5 = {
+      x: [0, 0.5, 1],
+      y: [0, 0.9, 0],
+      line: { color: "transparent", shape: "spline" },
+      name: "Fair",
+      showlegend: false,
+      type: "scatter",
+    };
+
+    var trace6 = {
+      x: [0, 0.5, 1],
+      y: [0.1, 1, 0.1],
+      fill: "tonexty",
+      fillcolor: colorPalette[2] + "aa",
+      line: { color: "transparent", shape: "spline" },
+      name: "Fair",
+      showlegend: false,
+      type: "scatter",
+    };
+
+    var trace7 = {
+      x: [0, 0.5, 1],
+      y: [0.9, 0, 0.9],
+      line: { color: "transparent", shape: "spline" },
+      name: "Fair",
+      showlegend: false,
+      type: "scatter",
+    };
+
+    var trace8 = {
+      x: [0, 0.5, 1],
+      y: [1, 0.1, 1],
+      fill: "tonexty",
+      fillcolor: colorPalette[3] + "aa",
       line: { color: "transparent", shape: "spline" },
       mode: "lines",
       name: "Fair",
@@ -71,7 +110,7 @@
       type: "scatter",
     }; */
 
-    var data = [trace1, trace2, trace3, trace4];
+    var data = [trace1, trace2, trace3, trace4, trace5, trace6, trace7, trace8];
 
     // The initial layout
     var layout = {
@@ -128,7 +167,8 @@
     });
 
     /**
-     * Updated the SCORE bands and axis position
+     * Calculate new positions for the bands and the selected objective axis
+     * with given slider value
      *
      * @param sliderValue New axis position given with slider
      * @param dropdownValue Selected objective axis
@@ -139,8 +179,6 @@
         let updatedTrace = { ...trace };
 
         updatedTrace.x[dropdownValue] = sliderValue / 100;
-        updatedTrace.x[updatedTrace.x.length - 1 - dropdownValue] =
-          sliderValue / 100;
 
         updatedTraces.push(updatedTrace);
       }
@@ -151,8 +189,10 @@
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
 
+      // Refresh the current state of the plot
       data = updatedTraces;
       layout = updatedLayout;
+
       return [updatedTraces, updatedLayout];
     }
   });
