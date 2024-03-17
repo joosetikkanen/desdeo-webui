@@ -10,6 +10,7 @@
     y: [0, 0.4, 0.9],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band1",
+    mode: "lines",
     name: "Band 1",
     showlegend: false,
     type: "scatter",
@@ -22,6 +23,7 @@
     fillcolor: colorPalette[0] + "aa",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band1",
+    mode: "lines",
     name: "Band 1",
     showlegend: true,
     type: "scatter",
@@ -32,6 +34,7 @@
     y: [0.9, 0.4, 0],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band2",
+    mode: "lines",
     name: "Band 2",
     showlegend: false,
     type: "scatter",
@@ -44,6 +47,7 @@
     fillcolor: colorPalette[1] + "aa",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band2",
+    mode: "lines",
     name: "Band 2",
     showlegend: true,
     type: "scatter",
@@ -54,6 +58,7 @@
     y: [0, 0.9, 0],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band3",
+    mode: "lines",
     name: "Band 3",
     showlegend: false,
     type: "scatter",
@@ -66,6 +71,7 @@
     fillcolor: colorPalette[2] + "aa",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band3",
+    mode: "lines",
     name: "Band 3",
     showlegend: true,
     type: "scatter",
@@ -76,6 +82,7 @@
     y: [0.9, 0, 0.9],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band4",
+    mode: "lines",
     name: "Band 4",
     showlegend: false,
     type: "scatter",
@@ -94,7 +101,60 @@
     type: "scatter",
   };
 
-  var data = [trace1, trace2, trace3, trace4, trace5, trace6, trace7, trace8];
+  var objectives = ["Objective 1", "Objective 2", "Objective 3"];
+  var movableObjectives = objectives.slice(1, -1);
+
+  var axisPositions = [0, 0.5, 1];
+
+  var objective1trace = {
+    x: [axisPositions[0]],
+    y: [1.1],
+    mode: "text",
+    textfont: { size: 10 },
+    showlegend: false,
+    name: objectives[0],
+    text: objectives[0],
+    textposition: "top",
+    type: "scatter",
+  };
+
+  var objective2trace = {
+    x: [axisPositions[1]],
+    y: [1.1],
+    mode: "text",
+    textfont: { size: 10 },
+    showlegend: false,
+    name: objectives[1],
+    text: objectives[1],
+    textposition: "top",
+    type: "scatter",
+  };
+
+  var objective3trace = {
+    x: [axisPositions[2]],
+    y: [1.1],
+    mode: "text",
+    textfont: { size: 10 },
+    showlegend: false,
+    name: objectives[2],
+    text: objectives[2],
+    textposition: "top",
+    type: "scatter",
+  };
+
+  var data = [
+    trace1,
+    trace2,
+    trace3,
+    trace4,
+    trace5,
+    trace6,
+    trace7,
+    trace8,
+    objective1trace,
+    objective2trace,
+    objective3trace,
+  ];
 
   // The initial layout
   var layout = {
@@ -102,7 +162,7 @@
     plot_bgcolor: "rgb(229,229,229)",
     xaxis: {
       gridcolor: "rgb(255,255,255)",
-      range: [0, 1],
+      range: [-0.05, 1.05],
       showgrid: true,
       showline: false,
       showticklabels: true,
@@ -113,7 +173,7 @@
     },
     yaxis: {
       gridcolor: "rgb(255,255,255)",
-      range: [0, 1],
+      range: [0, 1.2],
       showgrid: false,
       showline: false,
       showticklabels: false,
@@ -123,9 +183,6 @@
     },
     dragmode: false,
   };
-
-  var objectives = ["Objective 1", "Objective 2", "Objective 3"];
-  var movableObjectives = objectives.slice(1, -1);
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
@@ -188,11 +245,19 @@
 
           console.log("SWAP");
           for (let j = 0; j < updatedTraces.length; j++) {
-            let tmp = updatedTraces[j].y[i];
-            updatedTraces[j].y[i] = updatedTraces[j].y[i + 1];
-            updatedTraces[j].y[i + 1] = tmp;
-
-            updatedTraces[j].x = newTickVals;
+            console.log(
+              updatedTraces[j],
+              updatedTraces[j].name === objectives[selectedObjectiveIndex]
+            );
+            if (updatedTraces[j].mode === "text") {
+              // TODO: Swap objective labels
+              updatedTraces[j].x = [newTickVals[selectedObjectiveIndex]];
+            } else if (updatedTraces[j].mode === "lines") {
+              let tmp = updatedTraces[j].y[i];
+              updatedTraces[j].y[i] = updatedTraces[j].y[i + 1];
+              updatedTraces[j].y[i + 1] = tmp;
+              updatedTraces[j].x = newTickVals;
+            }
           }
 
           [objectives[i], objectives[i + 1]] = [
@@ -232,7 +297,12 @@
     function getUpdatedChartData(sliderValue: number, dropdownValue: number) {
       let updatedTraces = [...data];
       updatedTraces.forEach((trace) => {
-        trace.x[dropdownValue] = sliderValue / 100;
+        if (trace.name === objectives[dropdownValue]) {
+          // axisPositions[dropdownValue] = sliderValue / 100;
+          trace.x = [sliderValue / 100];
+        } else if (trace.mode === "lines") {
+          trace.x[dropdownValue] = sliderValue / 100;
+        }
       });
 
       /* let updatedTraces = [];
