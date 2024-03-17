@@ -124,7 +124,7 @@
     dragmode: false,
   };
 
-  var objectives = [0, 1, 2];
+  var objectives = ["Objective 1", "Objective 2", "Objective 3"];
   var movableObjectives = objectives.slice(1, -1);
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
@@ -148,12 +148,12 @@
     });
 
     var slider = document.getElementById("slider");
-    var sliderValue = document.getElementById("sliderValue");
+    // var sliderValue = document.getElementById("sliderValue");
     var dropdown = document.getElementById("dropdown");
 
     // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
-      sliderValue.textContent = this.value;
+      // sliderValue.textContent = this.value;
 
       var [newData, newLayout] = getUpdatedChartData(
         this.value,
@@ -163,31 +163,86 @@
       Plotly.react("SCOREBands", newData, newLayout);
     });
 
+    slider.addEventListener("mousedown", function () {
+      //
+    });
+
+    // Perform axis swap if axis is moved within 5% distance of another axis or over
+    slider.addEventListener("mouseup", function () {
+      let updatedTraces = [...data];
+      let newTickVals = [...layout.xaxis.tickvals];
+      let selectedObjectiveIndex = dropdown.value;
+
+      for (let i = 0; i < newTickVals.length - 1; i++) {
+        let dist =
+          Math.round(Math.abs(newTickVals[i] - newTickVals[i + 1]) * 100) / 100;
+        console.log(dist);
+        if (dist <= 0.05) {
+          // reset minimum distance of the axes to 5%
+          let residue = Math.abs(0.05 - dist);
+          if (i == selectedObjectiveIndex) {
+            newTickVals[selectedObjectiveIndex] -= residue;
+          } else {
+            newTickVals[selectedObjectiveIndex] += residue;
+          }
+
+          console.log("SWAP");
+          for (let j = 0; j < updatedTraces.length; j++) {
+            let tmp = updatedTraces[j].y[i];
+            updatedTraces[j].y[i] = updatedTraces[j].y[i + 1];
+            updatedTraces[j].y[i + 1] = tmp;
+
+            updatedTraces[j].x = newTickVals;
+          }
+
+          [objectives[i], objectives[i + 1]] = [
+            objectives[i + 1],
+            objectives[i],
+          ];
+          movableObjectives = objectives.slice(1, -1);
+        }
+      }
+
+      console.log(updatedTraces, newTickVals);
+      let updatedLayout = { ...layout };
+      updatedLayout.xaxis.tickvals = newTickVals;
+
+      // update slider accordingly
+      slider.value = newTickVals[selectedObjectiveIndex] * 100;
+
+      Plotly.update("SCOREBands", updatedTraces, updatedLayout);
+    });
+
     // Update the slider value based on the selected objective
     dropdown.addEventListener("change", function () {
       var selectedObjectiveIndex = dropdown.value;
       var updatedSliderValue = trace1.x[selectedObjectiveIndex] * 100;
 
       slider.value = updatedSliderValue;
-      sliderValue.textContent = updatedSliderValue + "";
+      // sliderValue.textContent = updatedSliderValue + "";
     });
 
     /**
      * Calculate new positions for the bands and the selected objective axis
      * with given slider value
      *
-     * @param sliderValue New axis position given with slider
+     * @param sliderValue Value of the slider
      * @param dropdownValue Selected objective axis
      */
-    function getUpdatedChartData(sliderValue, dropdownValue) {
-      let updatedTraces = [];
-      for (let trace of data) {
+    function getUpdatedChartData(sliderValue: number, dropdownValue: number) {
+      let updatedTraces = [...data];
+      updatedTraces.forEach((trace) => {
+        trace.x[dropdownValue] = sliderValue / 100;
+      });
+
+      /* let updatedTraces = [];
+      for (let trace of updatedTraces) {
         let updatedTrace = { ...trace };
 
         updatedTrace.x[dropdownValue] = sliderValue / 100;
 
         updatedTraces.push(updatedTrace);
-      }
+      } */
 
       let newTickVals = [...layout.xaxis.tickvals];
       newTickVals[dropdownValue] = sliderValue / 100;
@@ -208,11 +263,11 @@
   <div>
     <select id="dropdown">
       {#each movableObjectives as objective}
-        <option value={objective}>Objective {objective + 1}</option>
+        <option value={objectives.indexOf(objective)}>{objective}</option>
       {/each}
     </select>
     <input type="range" id="slider" min="0" max="100" />
-    <span id="sliderValue" />
+    <!-- <span id="sliderValue" /> -->
   </div>
   <div id="SCOREBands" />
 </div>
