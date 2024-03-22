@@ -101,43 +101,20 @@
     type: "scatter",
   };
 
-  var objectives = ["Objective 1", "Objective 2", "Objective 3"];
+  var objectives = [
+    { name: "Objective 1", position: 0 },
+    { name: "Objective 2", position: 0.5 },
+    { name: "Objective 3", position: 1 },
+  ];
   var movableObjectives = objectives.slice(1, -1);
 
-  var axisPositions = [0, 0.5, 1];
-
-  var objective1trace = {
-    x: [axisPositions[0]],
-    y: [1.1],
+  var objectiveTrace = {
+    x: [0, 0.5, 1],
+    y: [1.1, 1.1, 1.1],
     mode: "text",
     textfont: { size: 10 },
     showlegend: false,
-    name: objectives[0],
-    text: objectives[0],
-    textposition: "top",
-    type: "scatter",
-  };
-
-  var objective2trace = {
-    x: [axisPositions[1]],
-    y: [1.1],
-    mode: "text",
-    textfont: { size: 10 },
-    showlegend: false,
-    name: objectives[1],
-    text: objectives[1],
-    textposition: "top",
-    type: "scatter",
-  };
-
-  var objective3trace = {
-    x: [axisPositions[2]],
-    y: [1.1],
-    mode: "text",
-    textfont: { size: 10 },
-    showlegend: false,
-    name: objectives[2],
-    text: objectives[2],
+    text: ["Objective 1", "Objective 2", "Objective 3"],
     textposition: "top",
     type: "scatter",
   };
@@ -151,9 +128,7 @@
     trace6,
     trace7,
     trace8,
-    objective1trace,
-    objective2trace,
-    objective3trace,
+    objectiveTrace,
   ];
 
   // The initial layout
@@ -220,10 +195,6 @@
       Plotly.react("SCOREBands", newData, newLayout);
     });
 
-    slider.addEventListener("mousedown", function () {
-      //
-    });
-
     // Perform axis swap if axis is moved within 5% distance of another axis or over
     slider.addEventListener("mouseup", function () {
       let updatedTraces = [...data];
@@ -233,9 +204,8 @@
       for (let i = 0; i < newTickVals.length - 1; i++) {
         let dist =
           Math.round(Math.abs(newTickVals[i] - newTickVals[i + 1]) * 100) / 100;
-        console.log(dist);
         if (dist <= 0.05) {
-          // reset minimum distance of the axes to 5%
+          // Reset minimum distance of the axes to 5%
           let residue = Math.abs(0.05 - dist);
           if (i == selectedObjectiveIndex) {
             newTickVals[selectedObjectiveIndex] -= residue;
@@ -243,21 +213,21 @@
             newTickVals[selectedObjectiveIndex] += residue;
           }
 
-          console.log("SWAP");
           for (let j = 0; j < updatedTraces.length; j++) {
-            console.log(
-              updatedTraces[j],
-              updatedTraces[j].name === objectives[selectedObjectiveIndex]
-            );
             if (updatedTraces[j].mode === "text") {
-              // TODO: Swap objective labels
-              updatedTraces[j].x = [newTickVals[selectedObjectiveIndex]];
-            } else if (updatedTraces[j].mode === "lines") {
-              let tmp = updatedTraces[j].y[i];
-              updatedTraces[j].y[i] = updatedTraces[j].y[i + 1];
-              updatedTraces[j].y[i + 1] = tmp;
-              updatedTraces[j].x = newTickVals;
+              // Swap objective labels
+              [updatedTraces[j].text[i], updatedTraces[j].text[i + 1]] = [
+                updatedTraces[j].text[i + 1],
+                updatedTraces[j].text[i],
+              ];
             }
+            // Swap data trace positions
+            [updatedTraces[j].y[i], updatedTraces[j].y[i + 1]] = [
+              updatedTraces[j].y[i + 1],
+              updatedTraces[j].y[i],
+            ];
+
+            updatedTraces[j].x = newTickVals;
           }
 
           [objectives[i], objectives[i + 1]] = [
@@ -268,11 +238,10 @@
         }
       }
 
-      console.log(updatedTraces, newTickVals);
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
 
-      // update slider accordingly
+      // Update slider accordingly
       slider.value = newTickVals[selectedObjectiveIndex] * 100;
 
       Plotly.update("SCOREBands", updatedTraces, updatedLayout);
@@ -297,22 +266,8 @@
     function getUpdatedChartData(sliderValue: number, dropdownValue: number) {
       let updatedTraces = [...data];
       updatedTraces.forEach((trace) => {
-        if (trace.name === objectives[dropdownValue]) {
-          // axisPositions[dropdownValue] = sliderValue / 100;
-          trace.x = [sliderValue / 100];
-        } else if (trace.mode === "lines") {
-          trace.x[dropdownValue] = sliderValue / 100;
-        }
+        trace.x[dropdownValue] = sliderValue / 100;
       });
-
-      /* let updatedTraces = [];
-      for (let trace of updatedTraces) {
-        let updatedTrace = { ...trace };
-
-        updatedTrace.x[dropdownValue] = sliderValue / 100;
-
-        updatedTraces.push(updatedTrace);
-      } */
 
       let newTickVals = [...layout.xaxis.tickvals];
       newTickVals[dropdownValue] = sliderValue / 100;
@@ -333,7 +288,7 @@
   <div>
     <select id="dropdown">
       {#each movableObjectives as objective}
-        <option value={objectives.indexOf(objective)}>{objective}</option>
+        <option value={objectives.indexOf(objective)}>{objective.name}</option>
       {/each}
     </select>
     <input type="range" id="slider" min="0" max="100" />
