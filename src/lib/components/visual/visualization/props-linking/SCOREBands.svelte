@@ -10,7 +10,7 @@
     y: [0, 0.4, 0.9],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band1",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 1",
     showlegend: false,
     type: "scatter",
@@ -20,10 +20,10 @@
     x: [0, 0.5, 1],
     y: [0.1, 0.5, 1],
     fill: "tonexty",
-    fillcolor: colorPalette[0] + "aa",
+    fillcolor: colorPalette[0] + "77",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band1",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 1",
     showlegend: true,
     type: "scatter",
@@ -34,7 +34,7 @@
     y: [0.9, 0.4, 0],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band2",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 2",
     showlegend: false,
     type: "scatter",
@@ -44,10 +44,10 @@
     x: [0, 0.5, 1],
     y: [1, 0.5, 0.1],
     fill: "tonexty",
-    fillcolor: colorPalette[1] + "aa",
+    fillcolor: colorPalette[1] + "77",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band2",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 2",
     showlegend: true,
     type: "scatter",
@@ -58,7 +58,7 @@
     y: [0, 0.9, 0],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band3",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 3",
     showlegend: false,
     type: "scatter",
@@ -68,10 +68,10 @@
     x: [0, 0.5, 1],
     y: [0.1, 1, 0.1],
     fill: "tonexty",
-    fillcolor: colorPalette[2] + "aa",
+    fillcolor: colorPalette[2] + "77",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band3",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 3",
     showlegend: true,
     type: "scatter",
@@ -82,7 +82,7 @@
     y: [0.9, 0, 0.9],
     line: { color: "transparent", shape: "spline" },
     legengroup: "band4",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 4",
     showlegend: false,
     type: "scatter",
@@ -92,10 +92,10 @@
     x: [0, 0.5, 1],
     y: [1, 0.1, 1],
     fill: "tonexty",
-    fillcolor: colorPalette[3] + "aa",
+    fillcolor: colorPalette[3] + "77",
     line: { color: "transparent", shape: "spline" },
     legengroup: "band4",
-    mode: "lines",
+    mode: "lines+markers",
     name: "Band 4",
     showlegend: true,
     type: "scatter",
@@ -156,7 +156,7 @@
       ticks: "outside",
       zeroline: false,
     },
-    dragmode: false,
+    dragmode: "select",
   };
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
@@ -178,6 +178,55 @@
       modeBarButtonsToRemove: removeButtons,
       displaylogo: false,
     });
+
+    document
+      .getElementById("SCOREBands")
+      .on("plotly_selected", function (eventData) {
+        if (eventData) {
+          console.log(eventData);
+          if (eventData.points.length == 0) {
+            console.log("no data");
+
+            const selectOutlineElements = document.querySelectorAll(
+              "#SCOREBands .selectionlayer"
+            );
+            const selectZoomElements = document.querySelectorAll(
+              "#SCOREBands .zoomlayer"
+            );
+
+            console.log(selectOutlineElements);
+
+            selectOutlineElements.forEach((element) => {
+              element.remove();
+            });
+            selectZoomElements.forEach((element) => {
+              element.remove();
+            });
+
+            return;
+          }
+
+          const selectedPoints = eventData.points.map(
+            (point) => point.curveNumber
+          );
+
+          // Highlight selected traces
+          const updatedData = data.map((trace, index) => {
+            if (selectedPoints.includes(index) && trace.fillcolor) {
+              let fillColor = trace.fillcolor;
+
+              return {
+                ...trace,
+                fillcolor: fillColor.slice(0, -2) + "ff",
+              };
+            } else {
+              return trace; // Return original trace if not selected
+            }
+          });
+          // Update the plot with highlighted traces
+          Plotly.react("SCOREBands", updatedData, layout);
+        }
+      });
 
     var slider = document.getElementById("slider");
     // var sliderValue = document.getElementById("sliderValue");
