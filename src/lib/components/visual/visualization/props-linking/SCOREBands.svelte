@@ -179,54 +179,93 @@
       displaylogo: false,
     });
 
-    document
-      .getElementById("SCOREBands")
-      .on("plotly_selected", function (eventData) {
-        if (eventData) {
-          console.log(eventData);
-          if (eventData.points.length == 0) {
-            console.log("no data");
+    var plot = document.getElementById("SCOREBands");
 
-            const selectOutlineElements = document.querySelectorAll(
-              "#SCOREBands .selectionlayer"
-            );
-            const selectZoomElements = document.querySelectorAll(
-              "#SCOREBands .zoomlayer"
-            );
+    const removedElements = [];
 
-            console.log(selectOutlineElements);
+    /** Removes the select box elements */
+    function removeSelectBox() {
+      const selectOutlineElements = document.querySelectorAll(
+        "#SCOREBands .selectionlayer"
+      );
+      const selectZoomElements = document.querySelectorAll(
+        "#SCOREBands .zoomlayer"
+      );
 
-            selectOutlineElements.forEach((element) => {
-              element.remove();
-            });
-            selectZoomElements.forEach((element) => {
-              element.remove();
-            });
+      selectOutlineElements.forEach((element) => {
+        removedElements.push(element);
+        element.remove();
+      });
+      selectZoomElements.forEach((element) => {
+        removedElements.push(element);
+        element.remove();
+      });
+    }
 
-            return;
-          }
+    /** Adds the removed select box elements back to the graph */
+    function reAddSelectBox() {
+      let container = document.querySelector(
+        "#SCOREBands > div > div > svg:nth-child(1)"
+      );
+      while (removedElements.length > 0) {
+        container.appendChild(removedElements.pop());
+      }
+    }
 
-          const selectedPoints = eventData.points.map(
-            (point) => point.curveNumber
-          );
+    /** Re-add the select box and remove the highligths from traces on mouse-down */
+    plot.addEventListener("mousedown", function () {
+      reAddSelectBox();
 
-          // Highlight selected traces
-          const updatedData = data.map((trace, index) => {
-            if (selectedPoints.includes(index) && trace.fillcolor) {
-              let fillColor = trace.fillcolor;
-
-              return {
-                ...trace,
-                fillcolor: fillColor.slice(0, -2) + "ff",
-              };
-            } else {
-              return trace; // Return original trace if not selected
-            }
-          });
-          // Update the plot with highlighted traces
-          Plotly.react("SCOREBands", updatedData, layout);
+      const updatedData = data.map((trace) => {
+        if (trace.fillcolor) {
+          let fillColor = trace.fillcolor;
+          return {
+            ...trace,
+            fillcolor: fillColor.slice(0, -2) + "77",
+          };
+        } else {
+          return trace;
         }
       });
+
+      Plotly.react("SCOREBands", updatedData, layout);
+    });
+
+    /**
+     * Handles the select box logic. If no traces are selected on any axis,
+     * removes the select box.
+     */
+    plot.on("plotly_selected", function (eventData) {
+      removeSelectBox();
+
+      if (eventData) {
+        if (eventData.points.length == 0) {
+          return;
+        }
+
+        reAddSelectBox();
+
+        const selectedPoints = eventData.points.map(
+          (point) => point.curveNumber
+        );
+
+        // Highlight selected traces
+        const updatedData = data.map((trace, index) => {
+          if (selectedPoints.includes(index) && trace.fillcolor) {
+            let fillColor = trace.fillcolor;
+
+            return {
+              ...trace,
+              fillcolor: fillColor.slice(0, -2) + "ff",
+            };
+          } else {
+            return trace; // Return original trace if not selected
+          }
+        });
+        // Update the plot with highlighted traces
+        Plotly.react("SCOREBands", updatedData, layout);
+      }
+    });
 
     var slider = document.getElementById("slider");
     // var sliderValue = document.getElementById("sliderValue");
@@ -234,7 +273,7 @@
 
     // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
-      // sliderValue.textContent = this.value;
+      removeSelectBox();
 
       var [newData, newLayout] = getUpdatedChartData(
         this.value,
