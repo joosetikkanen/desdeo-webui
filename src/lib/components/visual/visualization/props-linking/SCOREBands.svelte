@@ -145,6 +145,7 @@
       ticks: "outside",
       zeroline: false,
       tickvals: [0, 0.5, 1],
+      fixedrange: true,
     },
     yaxis: {
       gridcolor: "rgb(255,255,255)",
@@ -155,6 +156,7 @@
       tickcolor: "rgb(127,127,127)",
       ticks: "outside",
       zeroline: false,
+      fixedrange: true,
     },
     dragmode: "select",
   };
@@ -181,10 +183,27 @@
 
     var plot = document.getElementById("SCOREBands");
 
-    const removedElements = [];
+    /* function removeDragElements() {
+      const dragLayer = document.querySelector("#SCOREBands > div > div > svg:nth-child(1) > g.draglayer.cursor-crosshair > g");
+
+      const childElements = dragLayer.children;
+
+      for (let i = childElements.length - 1; i >= 0; i--) {
+        const childElement = childElements[i];
+        if (childElement.classList.contains("nsewdrag") && childElement.classList.contains("drag")) {
+          continue;
+        }
+        childElement.remove();
+      }
+
+    } */
+
+    //removeDragElements();
+
+    //const removedElements = [];
 
     /** Removes the select box elements */
-    function removeSelectBox() {
+    /* function removeSelectBox() {
       const selectOutlineElements = document.querySelectorAll(
         "#SCOREBands .selectionlayer"
       );
@@ -200,21 +219,29 @@
         removedElements.push(element);
         element.remove();
       });
-    }
+
+      const updatedLayout = {...layout};
+      delete updatedLayout.selections;
+      console.log("CALLED", updatedLayout)
+      Plotly.react("SCOREBands", data, updatedLayout)
+    } */
 
     /** Adds the removed select box elements back to the graph */
-    function reAddSelectBox() {
+    /* function reAddSelectBox() {
       let container = document.querySelector(
         "#SCOREBands > div > div > svg:nth-child(1)"
       );
+      
       while (removedElements.length > 0) {
         container.appendChild(removedElements.pop());
       }
-    }
+    } */
 
     /** Re-add the select box and remove the highligths from traces on mouse-down */
-    plot.addEventListener("mousedown", function () {
-      reAddSelectBox();
+    /* plot.addEventListener("mousedown", function (event) {
+
+      //reAddSelectBox();
+      
 
       const updatedData = data.map((trace) => {
         if (trace.fillcolor) {
@@ -228,43 +255,74 @@
         }
       });
 
-      Plotly.react("SCOREBands", updatedData, layout);
-    });
+      const updatedLayout = {
+        ...layout,
+        selections: []
+      }
+
+      //console.log(updatedData, updatedLayout)
+      //Plotly.react("SCOREBands", updatedData, updatedLayout);
+      //removeDragElements();
+    }); */
 
     /**
      * Handles the select box logic. If no traces are selected on any axis,
-     * removes the select box.
+     * removes the select box and trace highlights.
      */
     plot.on("plotly_selected", function (eventData) {
-      removeSelectBox();
+      const indices = [];
+      const updatedFillcolors = [];
+
+      for (let i = 0; i < data.length; i++) {
+        let fillcolor = data[i].fillcolor;
+        if (fillcolor) {
+          indices.push(i);
+          updatedFillcolors.push(fillcolor.slice(0, -2) + "77");
+        }
+      }
+
+      // Remove highlights
+      Plotly.restyle("SCOREBands", { fillcolor: updatedFillcolors }, indices);
+
+      const updatedLayout = {
+        ...layout,
+        selections: [],
+      };
+
+      // Remove select box
+      Plotly.relayout("SCOREBands", updatedLayout);
 
       if (eventData) {
-        if (eventData.points.length == 0) {
-          return;
+        /*  if (eventData.points.length == 0) {
+          console.log("NO DATA")
+          console.log(eventData, eventData.points.length == 0)
+          //removeDragElements();
+          //return;
         }
+        console.log("DATA") */
 
-        reAddSelectBox();
+        //reAddSelectBox();
 
-        const selectedPoints = eventData.points.map(
+        const selectedFillcolors = eventData.points.filter(
+          (point) => point.data.fillcolor
+        );
+
+        const selectedIndices = selectedFillcolors.map(
           (point) => point.curveNumber
         );
 
-        // Highlight selected traces
-        const updatedData = data.map((trace, index) => {
-          if (selectedPoints.includes(index) && trace.fillcolor) {
-            let fillColor = trace.fillcolor;
+        const updatedFillcolors = selectedFillcolors.map(
+          (point) => point.data.fillcolor.slice(0, -2) + "ff"
+        );
 
-            return {
-              ...trace,
-              fillcolor: fillColor.slice(0, -2) + "ff",
-            };
-          } else {
-            return trace; // Return original trace if not selected
-          }
-        });
-        // Update the plot with highlighted traces
-        Plotly.react("SCOREBands", updatedData, layout);
+        // Highlight selected traces
+        Plotly.restyle(
+          "SCOREBands",
+          { fillcolor: updatedFillcolors },
+          selectedIndices
+        );
       }
+      //removeDragElements();
     });
 
     var slider = document.getElementById("slider");
@@ -273,7 +331,7 @@
 
     // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
-      removeSelectBox();
+      //removeSelectBox();
 
       var [newData, newLayout] = getUpdatedChartData(
         this.value,
