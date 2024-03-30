@@ -4,8 +4,58 @@
   import { onMount } from "svelte";
   import { colorPalette } from "$lib/components/visual/constants";
 
+  import * as dtlz7 from "$lib/datasets/dtlz7.json";
+
+  console.log(dtlz7);
+
+  var jsonData = [...dtlz7.data];
+  // Find the maximum and minimum values for each field
+  const maxValues = { f1: -Infinity, f2: -Infinity, f3: -Infinity };
+  const minValues = { f1: Infinity, f2: Infinity, f3: Infinity };
+
+  for (const obj of jsonData) {
+    for (const key of Object.keys(obj)) {
+      if (key === "group") {
+        continue;
+      }
+      if (obj[key] > maxValues[key]) {
+        maxValues[key] = obj[key];
+      }
+      if (obj[key] < minValues[key]) {
+        minValues[key] = obj[key];
+      }
+    }
+  }
+
+  // Scale each field in each object to the range of 0 to 1
+  for (const obj of jsonData) {
+    for (const key of Object.keys(obj)) {
+      if (key === "group") {
+        continue;
+      }
+      // Scale the value using the linear scaling formula
+      obj[key] =
+        (obj[key] - minValues[key]) / (maxValues[key] - minValues[key]);
+    }
+  }
+
+  var positions = { ...dtlz7.positions };
+
+  var data = jsonData.map((obj) => {
+    return {
+      x: [positions.f1, positions.f3, positions.f2],
+      y: [obj.f1, obj.f3, obj.f2],
+      line: { color: colorPalette[obj.group] + "77", shape: "spline" },
+      legengroup: obj.group,
+      mode: "lines+markers",
+      //name: "Band 1",
+      showlegend: true,
+      type: "scatter",
+    };
+  });
+
   // Add some sample data
-  var trace1 = {
+  /* var trace1 = {
     x: [0, 0.5, 1],
     y: [0, 0.4, 0.9],
     line: { color: "transparent", shape: "spline" },
@@ -101,13 +151,6 @@
     type: "scatter",
   };
 
-  var objectives = [
-    { name: "Objective 1", position: 0 },
-    { name: "Objective 2", position: 0.5 },
-    { name: "Objective 3", position: 1 },
-  ];
-  var movableObjectives = objectives.slice(1, -1);
-
   var objectiveTrace = {
     x: [0, 0.5, 1],
     y: [1.1, 1.1, 1.1],
@@ -117,9 +160,16 @@
     text: ["Objective 1", "Objective 2", "Objective 3"],
     textposition: "top",
     type: "scatter",
-  };
+  }; */
 
-  var data = [
+  var objectives = [
+    { name: "Objective 1", position: positions.f1 },
+    { name: "Objective 2", position: positions.f2 },
+    { name: "Objective 3", position: positions.f3 },
+  ];
+  var movableObjectives = objectives.slice(1, -1);
+
+  /* var data = [
     trace1,
     trace2,
     trace3,
@@ -129,7 +179,7 @@
     trace7,
     trace8,
     objectiveTrace,
-  ];
+  ]; */
 
   // The initial layout
   var layout = {
@@ -144,7 +194,8 @@
       tickcolor: "rgb(127,127,127)",
       ticks: "outside",
       zeroline: false,
-      tickvals: [0, 0.5, 1],
+      //tickvals: [0, 0.5, 1],
+      tickvals: [positions.f1, positions.f3, positions.f2],
       fixedrange: true,
     },
     yaxis: {
@@ -326,23 +377,31 @@
     });
 
     var slider = document.getElementById("slider");
-    // var sliderValue = document.getElementById("sliderValue");
+    var sliderValue = document.getElementById("sliderValue");
     var dropdown = document.getElementById("dropdown");
 
     // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
       //removeSelectBox();
 
+      /* var [newData, newLayout] = getUpdatedChartData(
+        this.value,
+        dropdown.value
+      );
+
+      Plotly.react("SCOREBands", newData, newLayout); */
+      sliderValue.textContent = slider.value / 100;
+    });
+
+    // Perform axis swap if axis is moved within 5% distance of another axis or over
+    slider.addEventListener("mouseup", function () {
       var [newData, newLayout] = getUpdatedChartData(
         this.value,
         dropdown.value
       );
 
       Plotly.react("SCOREBands", newData, newLayout);
-    });
 
-    // Perform axis swap if axis is moved within 5% distance of another axis or over
-    slider.addEventListener("mouseup", function () {
       let updatedTraces = [...data];
       let newTickVals = [...layout.xaxis.tickvals];
       let selectedObjectiveIndex = dropdown.value;
@@ -389,6 +448,7 @@
 
       // Update slider accordingly
       slider.value = newTickVals[selectedObjectiveIndex] * 100;
+      sliderValue.textContent = newTickVals[selectedObjectiveIndex];
 
       Plotly.update("SCOREBands", updatedTraces, updatedLayout);
     });
@@ -396,10 +456,11 @@
     // Update the slider value based on the selected objective
     dropdown.addEventListener("change", function () {
       var selectedObjectiveIndex = dropdown.value;
-      var updatedSliderValue = trace1.x[selectedObjectiveIndex] * 100;
+      var updatedSliderValue =
+        layout.xaxis.tickvals[selectedObjectiveIndex] * 100;
 
       slider.value = updatedSliderValue;
-      // sliderValue.textContent = updatedSliderValue + "";
+      sliderValue.textContent = updatedSliderValue + "";
     });
 
     /**
@@ -438,7 +499,7 @@
       {/each}
     </select>
     <input type="range" id="slider" min="0" max="100" />
-    <!-- <span id="sliderValue" /> -->
+    <span id="sliderValue" />
   </div>
   <div id="SCOREBands" />
 </div>
