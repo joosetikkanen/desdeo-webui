@@ -4,14 +4,28 @@
   import { onMount } from "svelte";
   import { colorPalette } from "$lib/components/visual/constants";
 
-  import * as dtlz7 from "$lib/datasets/dtlz7.json";
+  //import * as dtlz7 from "$lib/datasets/dtlz7.json";
+  import * as AD1 from "$lib/datasets/AD1.json";
+  //import * as AD2 from "$lib/datasets/AD2.json";
 
-  console.log(dtlz7);
+  var json = AD1;
 
-  var jsonData = [...dtlz7.data];
+  console.log(json);
+
+  // Hexadecimal value in range of 00-FF
+  let opacity = "ff";
+
+  var jsonData = [...json.data];
   // Find the maximum and minimum values for each field
-  const maxValues = { f1: -Infinity, f2: -Infinity, f3: -Infinity };
-  const minValues = { f1: Infinity, f2: Infinity, f3: Infinity };
+  const maxValues: Record<string, number> = {};
+  const minValues: Record<string, number> = {};
+  Object.keys(jsonData[0]).forEach((key) => {
+    maxValues[key] = -Infinity;
+    minValues[key] = Infinity;
+  });
+
+  /* const maxValues = { f1: -Infinity, f2: -Infinity, f3: -Infinity };
+  const minValues = { f1: Infinity, f2: Infinity, f3: Infinity }; */
 
   for (const obj of jsonData) {
     for (const key of Object.keys(obj)) {
@@ -39,20 +53,99 @@
     }
   }
 
-  var positions = { ...dtlz7.positions };
+  var positions = { ...json.positions };
+  //console.log(positions)
 
-  var data = jsonData.map((obj) => {
+  // Convert the object into an array of key-value pairs
+  const objectivesPositions = Object.entries(positions);
+
+  //console.log(objectivesPositions)
+  // Sort the array based on the numeric values
+  objectivesPositions.sort((a, b) => a[1] - b[1]);
+  //console.log(objectivesPositions)
+
+  const axisPositions = objectivesPositions.map((arr) => {
+    return arr[1];
+  });
+  //console.log(axisPositions)
+  const axisLabels = objectivesPositions.map((arr) => {
+    return arr[0];
+  });
+  //console.log(axisLabels)
+
+  /* var objectives = [
+    { name: "Objective 1", position: positions.f1 },
+    { name: "Objective 2", position: positions.f2 },
+    { name: "Objective 3", position: positions.f3 },
+  ];
+  var movableObjectives = objectives.slice(1, -1); */
+
+  var movableObjectives = objectivesPositions.slice(1, -1);
+
+  // Create a new array with sorted key-value pairs
+  //const sortedKeyValueArray: { key: string; value: number }[] = keyValueArray.map(([key, value]) => ({ key, value }));
+
+  //console.log(sortedKeyValueArray);
+
+  const groupedData = jsonData.reduce((acc, obj) => {
+    const groupKey = obj.group;
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(obj);
+    return acc;
+  }, {});
+
+  console.log(groupedData);
+
+  var data = [];
+
+  for (let groupId in groupedData) {
+    let legend = true;
+
+    for (let solution of groupedData[groupId]) {
+      let yValues = axisLabels.map((label) => {
+        return solution[label];
+      });
+      data.push({
+        x: axisPositions,
+        y: yValues,
+        line: {
+          color: colorPalette[groupId] + opacity /* , shape: "spline"  */,
+        },
+        legendgroup: "band" + groupId,
+        mode: "lines+markers",
+        name: "Solutions: Cluster " + groupId,
+        showlegend: legend,
+        type: "scatter",
+      });
+      legend = false;
+    }
+  }
+
+  data.push({
+    x: axisPositions,
+    y: axisLabels.map(() => 1.1),
+    mode: "text",
+    textfont: { size: 10 },
+    showlegend: false,
+    text: axisLabels,
+    textposition: "top",
+    type: "scatter",
+  });
+
+  /*  var data = jsonData.map((obj) => {
     return {
       x: [positions.f1, positions.f3, positions.f2],
       y: [obj.f1, obj.f3, obj.f2],
       line: { color: colorPalette[obj.group] + "77", shape: "spline" },
-      legengroup: obj.group,
+      legengroup: "Solutions: Cluster " + obj.group,
       mode: "lines+markers",
       //name: "Band 1",
       showlegend: true,
       type: "scatter",
     };
-  });
+  }); */
 
   // Add some sample data
   /* var trace1 = {
@@ -162,13 +255,6 @@
     type: "scatter",
   }; */
 
-  var objectives = [
-    { name: "Objective 1", position: positions.f1 },
-    { name: "Objective 2", position: positions.f2 },
-    { name: "Objective 3", position: positions.f3 },
-  ];
-  var movableObjectives = objectives.slice(1, -1);
-
   /* var data = [
     trace1,
     trace2,
@@ -195,7 +281,7 @@
       ticks: "outside",
       zeroline: false,
       //tickvals: [0, 0.5, 1],
-      tickvals: [positions.f1, positions.f3, positions.f2],
+      tickvals: axisPositions,
       fixedrange: true,
     },
     yaxis: {
@@ -435,11 +521,11 @@
             updatedTraces[j].x = newTickVals;
           }
 
-          [objectives[i], objectives[i + 1]] = [
-            objectives[i + 1],
-            objectives[i],
+          [objectivesPositions[i], objectivesPositions[i + 1]] = [
+            objectivesPositions[i + 1],
+            objectivesPositions[i],
           ];
-          movableObjectives = objectives.slice(1, -1);
+          movableObjectives = objectivesPositions.slice(1, -1);
         }
       }
 
@@ -494,12 +580,21 @@
 <div>
   <div>
     <select id="dropdown">
-      {#each movableObjectives as objective}
+      <!-- {#each movableObjectives as objective}
         <option value={objectives.indexOf(objective)}>{objective.name}</option>
+      {/each} -->
+      {#each movableObjectives as obj}
+        <option value={objectivesPositions.indexOf(obj)}>{obj[0]}</option>
       {/each}
     </select>
-    <input type="range" id="slider" min="0" max="100" />
-    <span id="sliderValue" />
+    <input
+      type="range"
+      id="slider"
+      min="0"
+      max="100"
+      value={layout.xaxis.tickvals[1] * 100}
+    />
+    <span id="sliderValue">{movableObjectives[0][1]}</span>
   </div>
   <div id="SCOREBands" />
 </div>
