@@ -13,14 +13,31 @@
   var json = datasets.dtlz7;
 
   // Hexadecimal value in range of 00-FF
-  let opacity = "ff";
+  let solutionOpacity = "ff";
+  let bandOpacity = "aa";
 
   function parseData(json) {
     var jsonData = [...json.data];
+
+    var jsonBands = { ...json.bands };
+
+    let objectivesPositions = Object.entries(json.positions);
+
+    // Sort the positions by the numeric value ascending
+    objectivesPositions.sort((a, b) => a[1] - b[1]);
+
+    const axisPositions = objectivesPositions.map((arr) => {
+      return arr[1];
+    });
+    const axisLabels = objectivesPositions.map((arr) => {
+      return arr[0];
+    });
+
     // Find the maximum and minimum values for each field
     const maxValues: Record<string, number> = {};
     const minValues: Record<string, number> = {};
-    Object.keys(jsonData[0]).forEach((key) => {
+
+    axisLabels.forEach((key) => {
       maxValues[key] = -Infinity;
       minValues[key] = Infinity;
     });
@@ -45,46 +62,44 @@
         if (key === "group") {
           continue;
         }
-        // Scale the value using the linear scaling formula
+
         obj[key] =
           (obj[key] - minValues[key]) / (maxValues[key] - minValues[key]);
       }
     }
 
-    var positions = { ...json.positions };
-    //console.log(positions)
-
-    // Convert the object into an array of key-value pairs
-    let objectivesPositions = Object.entries(positions);
-
-    //console.log(objectivesPositions)
-    // Sort the array based on the numeric values
-    objectivesPositions.sort((a, b) => a[1] - b[1]);
-    //console.log(objectivesPositions)
-
-    const axisPositions = objectivesPositions.map((arr) => {
-      return arr[1];
+    // Do the same scaling process for the band data
+    axisLabels.forEach((key) => {
+      maxValues[key] = -Infinity;
+      minValues[key] = Infinity;
     });
-    //console.log(axisPositions)
-    const axisLabels = objectivesPositions.map((arr) => {
-      return arr[0];
-    });
-    //console.log(axisLabels)
 
-    /* var objectives = [
-      { name: "Objective 1", position: positions.f1 },
-      { name: "Objective 2", position: positions.f2 },
-      { name: "Objective 3", position: positions.f3 },
-    ];
-    var movableObjectives = objectives.slice(1, -1); */
+    for (const band of Object.keys(jsonBands)) {
+      for (const key of Object.keys(jsonBands[band])) {
+        for (const objKey of Object.keys(jsonBands[band][key])) {
+          const value = jsonBands[band][key][objKey];
+          if (value > maxValues[objKey]) {
+            maxValues[objKey] = value;
+          }
+          if (value < minValues[objKey]) {
+            minValues[objKey] = value;
+          }
+        }
+      }
+    }
 
-    // var movableObjectives = objectivesPositions.slice(1, -1);
+    for (const band of Object.keys(jsonBands)) {
+      for (const key of Object.keys(jsonBands[band])) {
+        for (const objKey of Object.keys(jsonBands[band][key])) {
+          const value = jsonBands[band][key][objKey];
+          jsonBands[band][key][objKey] =
+            (value - minValues[objKey]) /
+            (maxValues[objKey] - minValues[objKey]);
+        }
+      }
+    }
 
-    // Create a new array with sorted key-value pairs
-    //const sortedKeyValueArray: { key: string; value: number }[] = keyValueArray.map(([key, value]) => ({ key, value }));
-
-    //console.log(sortedKeyValueArray);
-
+    // Group the data by the cluster key
     const groupedData = jsonData.reduce((acc, obj) => {
       const groupKey = obj.group;
       if (!acc[groupKey]) {
@@ -94,33 +109,92 @@
       return acc;
     }, {});
 
-    console.log(groupedData);
-
     let data = [];
 
-    for (let groupId in groupedData) {
+    for (let clusterId in groupedData) {
       let legend = true;
 
-      for (let solution of groupedData[groupId]) {
-        let yValues = axisLabels.map((label) => {
-          return solution[label];
-        });
+      // Individual solutions
+      for (let solution of groupedData[clusterId]) {
         data.push({
           x: axisPositions,
-          y: yValues,
+          y: axisLabels.map((label) => {
+            return solution[label];
+          }),
           line: {
-            color: colorPalette[groupId] + opacity /* , shape: "spline"  */,
+            color: colorPalette[clusterId] + solutionOpacity,
           },
-          legendgroup: "band" + groupId,
+          legendgroup: "Solutions: Cluster " + clusterId,
           mode: "lines+markers",
-          name: "Solutions: Cluster " + groupId,
+          name: "Solutions: Cluster " + clusterId,
           showlegend: legend,
           type: "scatter",
         });
         legend = false;
       }
+
+      // Lower bound of the band
+      data.push({
+        x: axisPositions,
+        y: axisLabels.map((label) => {
+          return jsonBands[clusterId].lower_bound[label];
+        }),
+        line: {
+          color: colorPalette[clusterId] + solutionOpacity,
+          shape: "spline",
+        },
+        marker: { color: "transparent" },
+        legendgroup: "50% band: Cluster " + clusterId,
+        mode: "lines+markers",
+        name: "50% band: Cluster " + clusterId,
+        showlegend: false,
+        type: "scatter",
+      });
+
+      // Upper bound of the band
+      data.push({
+        x: axisPositions,
+        y: axisLabels.map((label) => {
+          return jsonBands[clusterId].upper_bound[label];
+        }),
+        fill: "tonexty",
+        fillcolor: colorPalette[clusterId] + bandOpacity,
+        line: {
+          color: colorPalette[clusterId] + solutionOpacity,
+          shape: "spline",
+        },
+        marker: { color: "transparent" },
+        legendgroup: "50% band: Cluster " + clusterId,
+        mode: "lines+markers",
+        name: "50% band: Cluster " + clusterId,
+        showlegend: true,
+        type: "scatter",
+      });
+
+      // Median
+      data.push({
+        x: axisPositions,
+        y: axisLabels.map((label) => {
+          return jsonBands[clusterId].median[label];
+        }),
+        line: {
+          color: colorPalette[clusterId] + solutionOpacity,
+        },
+        marker: {
+          line: {
+            color: "Black",
+            width: 2,
+          },
+        },
+        legendgroup: "Median: Cluster " + clusterId,
+        mode: "lines+markers",
+        name: "Median: Cluster " + clusterId,
+        showlegend: true,
+        type: "scatter",
+      });
     }
 
+    // Objective axis labels
     data.push({
       x: axisPositions,
       y: axisLabels.map(() => 1.1),
@@ -131,139 +205,6 @@
       textposition: "top",
       type: "scatter",
     });
-
-    /*  var data = jsonData.map((obj) => {
-      return {
-        x: [positions.f1, positions.f3, positions.f2],
-        y: [obj.f1, obj.f3, obj.f2],
-        line: { color: colorPalette[obj.group] + "77", shape: "spline" },
-        legengroup: "Solutions: Cluster " + obj.group,
-        mode: "lines+markers",
-        //name: "Band 1",
-        showlegend: true,
-        type: "scatter",
-      };
-    }); */
-
-    // Add some sample data
-    /* var trace1 = {
-      x: [0, 0.5, 1],
-      y: [0, 0.4, 0.9],
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band1",
-      mode: "lines+markers",
-      name: "Band 1",
-      showlegend: false,
-      type: "scatter",
-    };
-
-    var trace2 = {
-      x: [0, 0.5, 1],
-      y: [0.1, 0.5, 1],
-      fill: "tonexty",
-      fillcolor: colorPalette[0] + "77",
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band1",
-      mode: "lines+markers",
-      name: "Band 1",
-      showlegend: true,
-      type: "scatter",
-    };
-
-    var trace3 = {
-      x: [0, 0.5, 1],
-      y: [0.9, 0.4, 0],
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band2",
-      mode: "lines+markers",
-      name: "Band 2",
-      showlegend: false,
-      type: "scatter",
-    };
-
-    var trace4 = {
-      x: [0, 0.5, 1],
-      y: [1, 0.5, 0.1],
-      fill: "tonexty",
-      fillcolor: colorPalette[1] + "77",
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band2",
-      mode: "lines+markers",
-      name: "Band 2",
-      showlegend: true,
-      type: "scatter",
-    };
-
-    var trace5 = {
-      x: [0, 0.5, 1],
-      y: [0, 0.9, 0],
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band3",
-      mode: "lines+markers",
-      name: "Band 3",
-      showlegend: false,
-      type: "scatter",
-    };
-
-    var trace6 = {
-      x: [0, 0.5, 1],
-      y: [0.1, 1, 0.1],
-      fill: "tonexty",
-      fillcolor: colorPalette[2] + "77",
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band3",
-      mode: "lines+markers",
-      name: "Band 3",
-      showlegend: true,
-      type: "scatter",
-    };
-
-    var trace7 = {
-      x: [0, 0.5, 1],
-      y: [0.9, 0, 0.9],
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band4",
-      mode: "lines+markers",
-      name: "Band 4",
-      showlegend: false,
-      type: "scatter",
-    };
-
-    var trace8 = {
-      x: [0, 0.5, 1],
-      y: [1, 0.1, 1],
-      fill: "tonexty",
-      fillcolor: colorPalette[3] + "77",
-      line: { color: "transparent", shape: "spline" },
-      legengroup: "band4",
-      mode: "lines+markers",
-      name: "Band 4",
-      showlegend: true,
-      type: "scatter",
-    };
-
-    var objectiveTrace = {
-      x: [0, 0.5, 1],
-      y: [1.1, 1.1, 1.1],
-      mode: "text",
-      textfont: { size: 10 },
-      showlegend: false,
-      text: ["Objective 1", "Objective 2", "Objective 3"],
-      textposition: "top",
-      type: "scatter",
-    }; */
-
-    /* var data = [
-      trace1,
-      trace2,
-      trace3,
-      trace4,
-      trace5,
-      trace6,
-      trace7,
-      trace8,
-      objectiveTrace,
-    ]; */
 
     // The initial layout
     let layout = {
@@ -278,7 +219,6 @@
         tickcolor: "rgb(127,127,127)",
         ticks: "outside",
         zeroline: false,
-        //tickvals: [0, 0.5, 1],
         tickvals: axisPositions,
         fixedrange: true,
       },
@@ -364,7 +304,7 @@
 
       const updatedLayout = {...layout};
       delete updatedLayout.selections;
-      console.log("CALLED", updatedLayout)
+      
       Plotly.react("SCOREBands", data, updatedLayout)
     } */
 
@@ -402,7 +342,7 @@
         selections: []
       }
 
-      //console.log(updatedData, updatedLayout)
+      
       //Plotly.react("SCOREBands", updatedData, updatedLayout);
       //removeDragElements();
     }); */
@@ -436,12 +376,10 @@
 
       if (eventData) {
         /*  if (eventData.points.length == 0) {
-          console.log("NO DATA")
-          console.log(eventData, eventData.points.length == 0)
+          
           //removeDragElements();
           //return;
-        }
-        console.log("DATA") */
+        }*/
 
         //reAddSelectBox();
 
@@ -476,7 +414,7 @@
       json = datasets[this.value];
       [data, layout, objectivesPositions] = parseData(json);
       movableObjectives = objectivesPositions.slice(1, -1);
-      Plotly.newPlot("SCOREBands", data, layout);
+      Plotly.react("SCOREBands", data, layout);
       sliderValue.textContent = movableObjectives[0][1];
       dropdown.value = 1;
     });
@@ -578,7 +516,6 @@
         movableObjectives = objectivesPositions.slice(1, -1);
 
         // Update slider accordingly
-        console.log(newTickVals[refAxisIndex]);
         if (
           newTickVals[refAxisIndex] <= 0.05 ||
           newTickVals[refAxisIndex] >= 0.95
