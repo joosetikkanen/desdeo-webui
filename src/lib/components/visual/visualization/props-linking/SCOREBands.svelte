@@ -4,299 +4,304 @@
   import { onMount } from "svelte";
   import { colorPalette } from "$lib/components/visual/constants";
 
-  //import * as dtlz7 from "$lib/datasets/dtlz7.json";
+  import * as dtlz7 from "$lib/datasets/dtlz7.json";
   import * as AD1 from "$lib/datasets/AD1.json";
-  //import * as AD2 from "$lib/datasets/AD2.json";
+  import * as AD2 from "$lib/datasets/AD2.json";
 
-  var json = AD1;
+  var datasets = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
-  console.log(json);
+  var json = datasets.dtlz7;
 
   // Hexadecimal value in range of 00-FF
   let opacity = "ff";
 
-  var jsonData = [...json.data];
-  // Find the maximum and minimum values for each field
-  const maxValues: Record<string, number> = {};
-  const minValues: Record<string, number> = {};
-  Object.keys(jsonData[0]).forEach((key) => {
-    maxValues[key] = -Infinity;
-    minValues[key] = Infinity;
-  });
+  function parseData(json) {
+    var jsonData = [...json.data];
+    // Find the maximum and minimum values for each field
+    const maxValues: Record<string, number> = {};
+    const minValues: Record<string, number> = {};
+    Object.keys(jsonData[0]).forEach((key) => {
+      maxValues[key] = -Infinity;
+      minValues[key] = Infinity;
+    });
 
-  /* const maxValues = { f1: -Infinity, f2: -Infinity, f3: -Infinity };
-  const minValues = { f1: Infinity, f2: Infinity, f3: Infinity }; */
-
-  for (const obj of jsonData) {
-    for (const key of Object.keys(obj)) {
-      if (key === "group") {
-        continue;
-      }
-      if (obj[key] > maxValues[key]) {
-        maxValues[key] = obj[key];
-      }
-      if (obj[key] < minValues[key]) {
-        minValues[key] = obj[key];
+    for (const obj of jsonData) {
+      for (const key of Object.keys(obj)) {
+        if (key === "group") {
+          continue;
+        }
+        if (obj[key] > maxValues[key]) {
+          maxValues[key] = obj[key];
+        }
+        if (obj[key] < minValues[key]) {
+          minValues[key] = obj[key];
+        }
       }
     }
-  }
 
-  // Scale each field in each object to the range of 0 to 1
-  for (const obj of jsonData) {
-    for (const key of Object.keys(obj)) {
-      if (key === "group") {
-        continue;
+    // Scale each field in each object to the range of 0 to 1
+    for (const obj of jsonData) {
+      for (const key of Object.keys(obj)) {
+        if (key === "group") {
+          continue;
+        }
+        // Scale the value using the linear scaling formula
+        obj[key] =
+          (obj[key] - minValues[key]) / (maxValues[key] - minValues[key]);
       }
-      // Scale the value using the linear scaling formula
-      obj[key] =
-        (obj[key] - minValues[key]) / (maxValues[key] - minValues[key]);
     }
-  }
 
-  var positions = { ...json.positions };
-  //console.log(positions)
+    var positions = { ...json.positions };
+    //console.log(positions)
 
-  // Convert the object into an array of key-value pairs
-  const objectivesPositions = Object.entries(positions);
+    // Convert the object into an array of key-value pairs
+    let objectivesPositions = Object.entries(positions);
 
-  //console.log(objectivesPositions)
-  // Sort the array based on the numeric values
-  objectivesPositions.sort((a, b) => a[1] - b[1]);
-  //console.log(objectivesPositions)
+    //console.log(objectivesPositions)
+    // Sort the array based on the numeric values
+    objectivesPositions.sort((a, b) => a[1] - b[1]);
+    //console.log(objectivesPositions)
 
-  const axisPositions = objectivesPositions.map((arr) => {
-    return arr[1];
-  });
-  //console.log(axisPositions)
-  const axisLabels = objectivesPositions.map((arr) => {
-    return arr[0];
-  });
-  //console.log(axisLabels)
+    const axisPositions = objectivesPositions.map((arr) => {
+      return arr[1];
+    });
+    //console.log(axisPositions)
+    const axisLabels = objectivesPositions.map((arr) => {
+      return arr[0];
+    });
+    //console.log(axisLabels)
 
-  /* var objectives = [
-    { name: "Objective 1", position: positions.f1 },
-    { name: "Objective 2", position: positions.f2 },
-    { name: "Objective 3", position: positions.f3 },
-  ];
-  var movableObjectives = objectives.slice(1, -1); */
+    /* var objectives = [
+      { name: "Objective 1", position: positions.f1 },
+      { name: "Objective 2", position: positions.f2 },
+      { name: "Objective 3", position: positions.f3 },
+    ];
+    var movableObjectives = objectives.slice(1, -1); */
 
-  var movableObjectives = objectivesPositions.slice(1, -1);
+    // var movableObjectives = objectivesPositions.slice(1, -1);
 
-  // Create a new array with sorted key-value pairs
-  //const sortedKeyValueArray: { key: string; value: number }[] = keyValueArray.map(([key, value]) => ({ key, value }));
+    // Create a new array with sorted key-value pairs
+    //const sortedKeyValueArray: { key: string; value: number }[] = keyValueArray.map(([key, value]) => ({ key, value }));
 
-  //console.log(sortedKeyValueArray);
+    //console.log(sortedKeyValueArray);
 
-  const groupedData = jsonData.reduce((acc, obj) => {
-    const groupKey = obj.group;
-    if (!acc[groupKey]) {
-      acc[groupKey] = [];
+    const groupedData = jsonData.reduce((acc, obj) => {
+      const groupKey = obj.group;
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
+      }
+      acc[groupKey].push(obj);
+      return acc;
+    }, {});
+
+    console.log(groupedData);
+
+    let data = [];
+
+    for (let groupId in groupedData) {
+      let legend = true;
+
+      for (let solution of groupedData[groupId]) {
+        let yValues = axisLabels.map((label) => {
+          return solution[label];
+        });
+        data.push({
+          x: axisPositions,
+          y: yValues,
+          line: {
+            color: colorPalette[groupId] + opacity /* , shape: "spline"  */,
+          },
+          legendgroup: "band" + groupId,
+          mode: "lines+markers",
+          name: "Solutions: Cluster " + groupId,
+          showlegend: legend,
+          type: "scatter",
+        });
+        legend = false;
+      }
     }
-    acc[groupKey].push(obj);
-    return acc;
-  }, {});
 
-  console.log(groupedData);
+    data.push({
+      x: axisPositions,
+      y: axisLabels.map(() => 1.1),
+      mode: "text",
+      textfont: { size: 10 },
+      showlegend: false,
+      text: axisLabels,
+      textposition: "top",
+      type: "scatter",
+    });
 
-  var data = [];
-
-  for (let groupId in groupedData) {
-    let legend = true;
-
-    for (let solution of groupedData[groupId]) {
-      let yValues = axisLabels.map((label) => {
-        return solution[label];
-      });
-      data.push({
-        x: axisPositions,
-        y: yValues,
-        line: {
-          color: colorPalette[groupId] + opacity /* , shape: "spline"  */,
-        },
-        legendgroup: "band" + groupId,
+    /*  var data = jsonData.map((obj) => {
+      return {
+        x: [positions.f1, positions.f3, positions.f2],
+        y: [obj.f1, obj.f3, obj.f2],
+        line: { color: colorPalette[obj.group] + "77", shape: "spline" },
+        legengroup: "Solutions: Cluster " + obj.group,
         mode: "lines+markers",
-        name: "Solutions: Cluster " + groupId,
-        showlegend: legend,
+        //name: "Band 1",
+        showlegend: true,
         type: "scatter",
-      });
-      legend = false;
-    }
-  }
+      };
+    }); */
 
-  data.push({
-    x: axisPositions,
-    y: axisLabels.map(() => 1.1),
-    mode: "text",
-    textfont: { size: 10 },
-    showlegend: false,
-    text: axisLabels,
-    textposition: "top",
-    type: "scatter",
-  });
-
-  /*  var data = jsonData.map((obj) => {
-    return {
-      x: [positions.f1, positions.f3, positions.f2],
-      y: [obj.f1, obj.f3, obj.f2],
-      line: { color: colorPalette[obj.group] + "77", shape: "spline" },
-      legengroup: "Solutions: Cluster " + obj.group,
+    // Add some sample data
+    /* var trace1 = {
+      x: [0, 0.5, 1],
+      y: [0, 0.4, 0.9],
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band1",
       mode: "lines+markers",
-      //name: "Band 1",
+      name: "Band 1",
+      showlegend: false,
+      type: "scatter",
+    };
+
+    var trace2 = {
+      x: [0, 0.5, 1],
+      y: [0.1, 0.5, 1],
+      fill: "tonexty",
+      fillcolor: colorPalette[0] + "77",
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band1",
+      mode: "lines+markers",
+      name: "Band 1",
       showlegend: true,
       type: "scatter",
     };
-  }); */
 
-  // Add some sample data
-  /* var trace1 = {
-    x: [0, 0.5, 1],
-    y: [0, 0.4, 0.9],
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band1",
-    mode: "lines+markers",
-    name: "Band 1",
-    showlegend: false,
-    type: "scatter",
-  };
+    var trace3 = {
+      x: [0, 0.5, 1],
+      y: [0.9, 0.4, 0],
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band2",
+      mode: "lines+markers",
+      name: "Band 2",
+      showlegend: false,
+      type: "scatter",
+    };
 
-  var trace2 = {
-    x: [0, 0.5, 1],
-    y: [0.1, 0.5, 1],
-    fill: "tonexty",
-    fillcolor: colorPalette[0] + "77",
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band1",
-    mode: "lines+markers",
-    name: "Band 1",
-    showlegend: true,
-    type: "scatter",
-  };
+    var trace4 = {
+      x: [0, 0.5, 1],
+      y: [1, 0.5, 0.1],
+      fill: "tonexty",
+      fillcolor: colorPalette[1] + "77",
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band2",
+      mode: "lines+markers",
+      name: "Band 2",
+      showlegend: true,
+      type: "scatter",
+    };
 
-  var trace3 = {
-    x: [0, 0.5, 1],
-    y: [0.9, 0.4, 0],
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band2",
-    mode: "lines+markers",
-    name: "Band 2",
-    showlegend: false,
-    type: "scatter",
-  };
+    var trace5 = {
+      x: [0, 0.5, 1],
+      y: [0, 0.9, 0],
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band3",
+      mode: "lines+markers",
+      name: "Band 3",
+      showlegend: false,
+      type: "scatter",
+    };
 
-  var trace4 = {
-    x: [0, 0.5, 1],
-    y: [1, 0.5, 0.1],
-    fill: "tonexty",
-    fillcolor: colorPalette[1] + "77",
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band2",
-    mode: "lines+markers",
-    name: "Band 2",
-    showlegend: true,
-    type: "scatter",
-  };
+    var trace6 = {
+      x: [0, 0.5, 1],
+      y: [0.1, 1, 0.1],
+      fill: "tonexty",
+      fillcolor: colorPalette[2] + "77",
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band3",
+      mode: "lines+markers",
+      name: "Band 3",
+      showlegend: true,
+      type: "scatter",
+    };
 
-  var trace5 = {
-    x: [0, 0.5, 1],
-    y: [0, 0.9, 0],
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band3",
-    mode: "lines+markers",
-    name: "Band 3",
-    showlegend: false,
-    type: "scatter",
-  };
+    var trace7 = {
+      x: [0, 0.5, 1],
+      y: [0.9, 0, 0.9],
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band4",
+      mode: "lines+markers",
+      name: "Band 4",
+      showlegend: false,
+      type: "scatter",
+    };
 
-  var trace6 = {
-    x: [0, 0.5, 1],
-    y: [0.1, 1, 0.1],
-    fill: "tonexty",
-    fillcolor: colorPalette[2] + "77",
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band3",
-    mode: "lines+markers",
-    name: "Band 3",
-    showlegend: true,
-    type: "scatter",
-  };
+    var trace8 = {
+      x: [0, 0.5, 1],
+      y: [1, 0.1, 1],
+      fill: "tonexty",
+      fillcolor: colorPalette[3] + "77",
+      line: { color: "transparent", shape: "spline" },
+      legengroup: "band4",
+      mode: "lines+markers",
+      name: "Band 4",
+      showlegend: true,
+      type: "scatter",
+    };
 
-  var trace7 = {
-    x: [0, 0.5, 1],
-    y: [0.9, 0, 0.9],
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band4",
-    mode: "lines+markers",
-    name: "Band 4",
-    showlegend: false,
-    type: "scatter",
-  };
+    var objectiveTrace = {
+      x: [0, 0.5, 1],
+      y: [1.1, 1.1, 1.1],
+      mode: "text",
+      textfont: { size: 10 },
+      showlegend: false,
+      text: ["Objective 1", "Objective 2", "Objective 3"],
+      textposition: "top",
+      type: "scatter",
+    }; */
 
-  var trace8 = {
-    x: [0, 0.5, 1],
-    y: [1, 0.1, 1],
-    fill: "tonexty",
-    fillcolor: colorPalette[3] + "77",
-    line: { color: "transparent", shape: "spline" },
-    legengroup: "band4",
-    mode: "lines+markers",
-    name: "Band 4",
-    showlegend: true,
-    type: "scatter",
-  };
+    /* var data = [
+      trace1,
+      trace2,
+      trace3,
+      trace4,
+      trace5,
+      trace6,
+      trace7,
+      trace8,
+      objectiveTrace,
+    ]; */
 
-  var objectiveTrace = {
-    x: [0, 0.5, 1],
-    y: [1.1, 1.1, 1.1],
-    mode: "text",
-    textfont: { size: 10 },
-    showlegend: false,
-    text: ["Objective 1", "Objective 2", "Objective 3"],
-    textposition: "top",
-    type: "scatter",
-  }; */
+    // The initial layout
+    let layout = {
+      paper_bgcolor: "rgb(255,255,255)",
+      plot_bgcolor: "rgb(229,229,229)",
+      xaxis: {
+        gridcolor: "rgb(255,255,255)",
+        range: [-0.05, 1.05],
+        showgrid: true,
+        showline: false,
+        showticklabels: true,
+        tickcolor: "rgb(127,127,127)",
+        ticks: "outside",
+        zeroline: false,
+        //tickvals: [0, 0.5, 1],
+        tickvals: axisPositions,
+        fixedrange: true,
+      },
+      yaxis: {
+        gridcolor: "rgb(255,255,255)",
+        range: [0, 1.2],
+        showgrid: false,
+        showline: false,
+        showticklabels: false,
+        tickcolor: "rgb(127,127,127)",
+        ticks: "outside",
+        zeroline: false,
+        fixedrange: true,
+      },
+      dragmode: "select",
+    };
 
-  /* var data = [
-    trace1,
-    trace2,
-    trace3,
-    trace4,
-    trace5,
-    trace6,
-    trace7,
-    trace8,
-    objectiveTrace,
-  ]; */
+    return [data, layout, objectivesPositions];
+  }
 
-  // The initial layout
-  var layout = {
-    paper_bgcolor: "rgb(255,255,255)",
-    plot_bgcolor: "rgb(229,229,229)",
-    xaxis: {
-      gridcolor: "rgb(255,255,255)",
-      range: [-0.05, 1.05],
-      showgrid: true,
-      showline: false,
-      showticklabels: true,
-      tickcolor: "rgb(127,127,127)",
-      ticks: "outside",
-      zeroline: false,
-      //tickvals: [0, 0.5, 1],
-      tickvals: axisPositions,
-      fixedrange: true,
-    },
-    yaxis: {
-      gridcolor: "rgb(255,255,255)",
-      range: [0, 1.2],
-      showgrid: false,
-      showline: false,
-      showticklabels: false,
-      tickcolor: "rgb(127,127,127)",
-      ticks: "outside",
-      zeroline: false,
-      fixedrange: true,
-    },
-    dragmode: "select",
-  };
+  var [data, layout, objectivesPositions] = parseData(json);
+
+  var movableObjectives = objectivesPositions.slice(1, -1);
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
@@ -465,6 +470,21 @@
     var slider = document.getElementById("slider");
     var sliderValue = document.getElementById("sliderValue");
     var dropdown = document.getElementById("dropdown");
+    var datasetsDropdown = document.getElementById("datasets");
+
+    datasetsDropdown.addEventListener("change", function () {
+      json = datasets[this.value];
+      [data, layout, objectivesPositions] = parseData(json);
+      movableObjectives = objectivesPositions.slice(1, -1);
+      Plotly.newPlot("SCOREBands", data, layout);
+      sliderValue.textContent = movableObjectives[0][1];
+      dropdown.value = 1;
+    });
+
+    var axisOrigPos;
+    slider.addEventListener("mousedown", function () {
+      axisOrigPos = layout.xaxis.tickvals[dropdown.value];
+    });
 
     // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
@@ -481,18 +501,104 @@
 
     // Perform axis swap if axis is moved within 5% distance of another axis or over
     slider.addEventListener("mouseup", function () {
-      var [newData, newLayout] = getUpdatedChartData(
+      /* var [newData, newLayout] = getUpdatedChartData(
         this.value,
         dropdown.value
       );
 
-      Plotly.react("SCOREBands", newData, newLayout);
+      Plotly.react("SCOREBands", newData, newLayout); */
 
-      let updatedTraces = [...data];
+      /* let updatedTraces = [...data];
+      updatedTraces.forEach((trace) => {
+        trace.x[dropdownValue] = sliderValue / 100;
+      });
+
       let newTickVals = [...layout.xaxis.tickvals];
-      let selectedObjectiveIndex = dropdown.value;
+      newTickVals[dropdownValue] = sliderValue / 100;
 
-      for (let i = 0; i < newTickVals.length - 1; i++) {
+      let updatedLayout = { ...layout };
+      updatedLayout.xaxis.tickvals = newTickVals;
+
+      // Refresh the current state of the plot
+      data = updatedTraces;
+      layout = updatedLayout; */
+
+      let updatedTraces;
+      let origTickVals = [...layout.xaxis.tickvals];
+      let selectedAxisIndex: number = parseInt(dropdown.value);
+
+      let axisNewPos = this.value / 100;
+      let refAxisIndex: number;
+      let resetPos;
+      let swap = false;
+
+      // Determine which direction the axis was moved
+      if (axisOrigPos - axisNewPos > 0) {
+        // Left
+        refAxisIndex = selectedAxisIndex - 1;
+        resetPos = origTickVals[refAxisIndex] + 0.05;
+        swap = axisNewPos <= resetPos;
+      } else {
+        // Right
+        refAxisIndex = selectedAxisIndex + 1;
+        resetPos = origTickVals[refAxisIndex] - 0.05;
+        swap = axisNewPos >= resetPos;
+      }
+
+      let newTickVals = [...origTickVals];
+
+      if (swap) {
+        newTickVals[selectedAxisIndex] = resetPos;
+
+        updatedTraces = data.map((trace) => {
+          if (trace.mode === "text") {
+            // Swap objective labels
+            [trace.text[selectedAxisIndex], trace.text[refAxisIndex]] = [
+              trace.text[refAxisIndex],
+              trace.text[selectedAxisIndex],
+            ];
+          }
+
+          //[trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [trace.y[refAxisIndex], trace.y[selectedAxisIndex]]
+          let temp = trace.y[selectedAxisIndex];
+          trace.y[selectedAxisIndex] = trace.y[refAxisIndex];
+          trace.y[refAxisIndex] = temp;
+          trace.x = newTickVals;
+          //[trace.x[selectedAxisIndex], trace.x[refAxisIndex]] = [trace.x[refAxisIndex], trace.x[selectedAxisIndex]]
+          return trace;
+        });
+
+        [
+          objectivesPositions[selectedAxisIndex],
+          objectivesPositions[refAxisIndex],
+        ] = [
+          objectivesPositions[refAxisIndex],
+          objectivesPositions[selectedAxisIndex],
+        ];
+        movableObjectives = objectivesPositions.slice(1, -1);
+
+        // Update slider accordingly
+        console.log(newTickVals[refAxisIndex]);
+        if (
+          newTickVals[refAxisIndex] <= 0.05 ||
+          newTickVals[refAxisIndex] >= 0.95
+        ) {
+          slider.value = newTickVals[selectedAxisIndex] * 100;
+          sliderValue.textContent = newTickVals[selectedAxisIndex];
+        } else {
+          slider.value = newTickVals[refAxisIndex] * 100;
+          sliderValue.textContent = newTickVals[refAxisIndex];
+          dropdown.value = refAxisIndex;
+        }
+      } else {
+        newTickVals[selectedAxisIndex] = axisNewPos;
+        updatedTraces = data.map((trace) => {
+          trace.x = newTickVals;
+          return trace;
+        });
+      }
+
+      /* for (let i = 0; i < newTickVals.length - 1; i++) {
         let dist =
           Math.round(Math.abs(newTickVals[i] - newTickVals[i + 1]) * 100) / 100;
         if (dist <= 0.05) {
@@ -527,26 +633,25 @@
           ];
           movableObjectives = objectivesPositions.slice(1, -1);
         }
-      }
+      } */
 
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
 
-      // Update slider accordingly
-      slider.value = newTickVals[selectedObjectiveIndex] * 100;
-      sliderValue.textContent = newTickVals[selectedObjectiveIndex];
-
       Plotly.update("SCOREBands", updatedTraces, updatedLayout);
+
+      // Refresh the current state of the plot
+      data = updatedTraces;
+      layout = updatedLayout;
     });
 
     // Update the slider value based on the selected objective
     dropdown.addEventListener("change", function () {
-      var selectedObjectiveIndex = dropdown.value;
-      var updatedSliderValue =
-        layout.xaxis.tickvals[selectedObjectiveIndex] * 100;
+      // var selectedObjectiveIndex = dropdown.value;
+      var updatedSliderValue = layout.xaxis.tickvals[dropdown.value] * 100;
 
       slider.value = updatedSliderValue;
-      sliderValue.textContent = updatedSliderValue + "";
+      sliderValue.textContent = updatedSliderValue / 100 + "";
     });
 
     /**
@@ -556,7 +661,7 @@
      * @param sliderValue Value of the slider
      * @param dropdownValue Selected objective axis
      */
-    function getUpdatedChartData(sliderValue: number, dropdownValue: number) {
+    /* function getUpdatedChartData(sliderValue: number, dropdownValue: number) {
       let updatedTraces = [...data];
       updatedTraces.forEach((trace) => {
         trace.x[dropdownValue] = sliderValue / 100;
@@ -573,12 +678,19 @@
       layout = updatedLayout;
 
       return [updatedTraces, updatedLayout];
-    }
+    } */
   });
 </script>
 
 <div>
   <div>
+    Dataset:
+    <select id="datasets">
+      {#each Object.keys(datasets) as dataset}
+        <option value={dataset}>{dataset}</option>
+      {/each}
+    </select>
+    Objective:
     <select id="dropdown">
       <!-- {#each movableObjectives as objective}
         <option value={objectives.indexOf(objective)}>{objective.name}</option>
