@@ -7,30 +7,47 @@
   import * as dtlz7 from "$lib/datasets/dtlz7.json";
   import * as AD1 from "$lib/datasets/AD1.json";
   import * as AD2 from "$lib/datasets/AD2.json";
+  import type {
+    Layout,
+    ModeBarDefaultButtons,
+    PlotData,
+    PlotlyHTMLElement,
+  } from "plotly.js";
 
-  var datasets = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
-
-  var json = datasets.dtlz7;
+  var datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
   // Hexadecimal value in range of 00-FF
   let solutionOpacity = "ff";
   let bandOpacity = "aa";
 
-  function parseData(json) {
+  /**
+   * Parses the solutions, bands and objective axis positions given in JSON
+   * format.
+   *
+   * @param json
+   * @returns An array of data traces list, the layout of the plot and a list of
+   *   objective axis labels and their positions
+   */
+  function parseData(
+    json
+  ): [Partial<PlotData>[], Partial<Layout>, [string, number][]] {
     var jsonData = [...json.data];
 
     var jsonBands = { ...json.bands };
 
-    let objectivesPositions = Object.entries(json.positions);
+    let objectivesPositions: [string, number][] = Object.entries(
+      json.positions
+    );
 
     // Sort the positions by the numeric value ascending
     objectivesPositions.sort((a, b) => a[1] - b[1]);
 
-    const axisPositions = objectivesPositions.map((arr) => {
-      return arr[1];
-    });
     const axisLabels = objectivesPositions.map((arr) => {
       return arr[0];
+    });
+
+    const axisPositions = objectivesPositions.map((arr) => {
+      return arr[1];
     });
 
     // Find the maximum and minimum values for each field
@@ -68,7 +85,7 @@
       }
     }
 
-    // Do the same scaling process for the band data
+    // Repeat the scaling process for the band data
     axisLabels.forEach((key) => {
       maxValues[key] = -Infinity;
       minValues[key] = Infinity;
@@ -109,7 +126,7 @@
       return acc;
     }, {});
 
-    let data = [];
+    let data: Partial<PlotData>[] = [];
 
     for (let clusterId in groupedData) {
       let legend = true;
@@ -202,12 +219,12 @@
       textfont: { size: 10 },
       showlegend: false,
       text: axisLabels,
-      textposition: "top",
+      textposition: "top center",
       type: "scatter",
     });
 
     // The initial layout
-    let layout = {
+    let layout: Partial<Layout> = {
       paper_bgcolor: "rgb(255,255,255)",
       plot_bgcolor: "rgb(229,229,229)",
       xaxis: {
@@ -239,15 +256,20 @@
     return [data, layout, objectivesPositions];
   }
 
-  var [data, layout, objectivesPositions] = parseData(json);
+  /**
+   * State variables for plot data, layout and objective labels with their
+   * positions
+   */
+  var [data, layout, objectivesPositions] = parseData(datasets.dtlz7);
 
+  /** State variable for keeping outermost axes static */
   var movableObjectives = objectivesPositions.slice(1, -1);
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
     const Plotly = await import("plotly.js-dist-min");
 
-    let removeButtons = [
+    let removeButtons: ModeBarDefaultButtons[] = [
       "zoom2d",
       "pan2d",
       "select2d",
@@ -263,7 +285,7 @@
       displaylogo: false,
     });
 
-    var plot = document.getElementById("SCOREBands");
+    var plot = document.getElementById("SCOREBands") as PlotlyHTMLElement;
 
     /* function removeDragElements() {
       const dragLayer = document.querySelector("#SCOREBands > div > div > svg:nth-child(1) > g.draglayer.cursor-crosshair > g");
@@ -405,26 +427,27 @@
       //removeDragElements();
     });
 
-    var slider = document.getElementById("slider");
-    var sliderValue = document.getElementById("sliderValue");
-    var dropdown = document.getElementById("dropdown");
-    var datasetsDropdown = document.getElementById("datasets");
+    var slider = document.getElementById("slider") as HTMLInputElement;
+    var sliderValue = document.getElementById("sliderValue") as HTMLSpanElement;
+    var dropdown = document.getElementById("dropdown") as HTMLSelectElement;
+    var datasetsDropdown = document.getElementById(
+      "datasets"
+    ) as HTMLSelectElement;
 
+    // Handle the dataset selector
     datasetsDropdown.addEventListener("change", function () {
-      json = datasets[this.value];
-      [data, layout, objectivesPositions] = parseData(json);
+      [data, layout, objectivesPositions] = parseData(datasets[this.value]);
       movableObjectives = objectivesPositions.slice(1, -1);
       Plotly.react("SCOREBands", data, layout);
-      sliderValue.textContent = movableObjectives[0][1];
-      dropdown.value = 1;
+      sliderValue.textContent = movableObjectives[0][1] + "";
+      dropdown.value = 1 + "";
     });
 
-    var axisOrigPos;
+    var axisOrigPos: number;
     slider.addEventListener("mousedown", function () {
-      axisOrigPos = layout.xaxis.tickvals[dropdown.value];
+      axisOrigPos = layout.xaxis.tickvals[parseInt(dropdown.value)];
     });
 
-    // Update SCORE bands and the layout when axis is repositioned with slider
     slider.addEventListener("input", function () {
       //removeSelectBox();
 
@@ -434,10 +457,10 @@
       );
 
       Plotly.react("SCOREBands", newData, newLayout); */
-      sliderValue.textContent = slider.value / 100;
+      sliderValue.textContent = parseInt(slider.value) / 100 + "";
     });
 
-    // Perform axis swap if axis is moved within 5% distance of another axis or over
+    // Update datatraces and axis position when axis is repositioned with the slider. Perform axis swap if axis is moved within 5% distance of another axis or over.
     slider.addEventListener("mouseup", function () {
       /* var [newData, newLayout] = getUpdatedChartData(
         this.value,
@@ -465,7 +488,7 @@
       let origTickVals = [...layout.xaxis.tickvals];
       let selectedAxisIndex: number = parseInt(dropdown.value);
 
-      let axisNewPos = this.value / 100;
+      let axisNewPos = parseInt(this.value) / 100;
       let refAxisIndex: number;
       let resetPos;
       let swap = false;
@@ -483,13 +506,13 @@
         swap = axisNewPos >= resetPos;
       }
 
-      let newTickVals = [...origTickVals];
+      let newTickVals: number[] = [...origTickVals];
 
       if (swap) {
         newTickVals[selectedAxisIndex] = resetPos;
 
         updatedTraces = data.map((trace) => {
-          if (trace.mode === "text") {
+          if (trace.mode === "text" && Array.isArray(trace.text)) {
             // Swap objective labels
             [trace.text[selectedAxisIndex], trace.text[refAxisIndex]] = [
               trace.text[refAxisIndex],
@@ -497,15 +520,20 @@
             ];
           }
 
-          //[trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [trace.y[refAxisIndex], trace.y[selectedAxisIndex]]
-          let temp = trace.y[selectedAxisIndex];
+          // Swap data trace positions
+          [trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [
+            trace.y[refAxisIndex],
+            trace.y[selectedAxisIndex],
+          ];
+          /* let temp = trace.y[selectedAxisIndex];
           trace.y[selectedAxisIndex] = trace.y[refAxisIndex];
-          trace.y[refAxisIndex] = temp;
+          trace.y[refAxisIndex] = temp; */
           trace.x = newTickVals;
           //[trace.x[selectedAxisIndex], trace.x[refAxisIndex]] = [trace.x[refAxisIndex], trace.x[selectedAxisIndex]]
           return trace;
         });
 
+        // Swap objectives/positions and update corresponding state variables
         [
           objectivesPositions[selectedAxisIndex],
           objectivesPositions[refAxisIndex],
@@ -515,17 +543,17 @@
         ];
         movableObjectives = objectivesPositions.slice(1, -1);
 
-        // Update slider accordingly
+        // Update slider and selected objective accordingly. Keep the objective selected if not swapped with one of the outermost axes.
         if (
           newTickVals[refAxisIndex] <= 0.05 ||
           newTickVals[refAxisIndex] >= 0.95
         ) {
-          slider.value = newTickVals[selectedAxisIndex] * 100;
-          sliderValue.textContent = newTickVals[selectedAxisIndex];
+          slider.value = newTickVals[selectedAxisIndex] * 100 + "";
+          sliderValue.textContent = newTickVals[selectedAxisIndex] + "";
         } else {
-          slider.value = newTickVals[refAxisIndex] * 100;
-          sliderValue.textContent = newTickVals[refAxisIndex];
-          dropdown.value = refAxisIndex;
+          slider.value = newTickVals[refAxisIndex] * 100 + "";
+          sliderValue.textContent = newTickVals[refAxisIndex] + "";
+          dropdown.value = refAxisIndex + "";
         }
       } else {
         newTickVals[selectedAxisIndex] = axisNewPos;
@@ -575,19 +603,18 @@
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
 
-      Plotly.update("SCOREBands", updatedTraces, updatedLayout);
+      Plotly.react("SCOREBands", updatedTraces, updatedLayout);
 
-      // Refresh the current state of the plot
+      // Refresh the plot state variables
       data = updatedTraces;
       layout = updatedLayout;
     });
 
-    // Update the slider value based on the selected objective
     dropdown.addEventListener("change", function () {
-      // var selectedObjectiveIndex = dropdown.value;
-      var updatedSliderValue = layout.xaxis.tickvals[dropdown.value] * 100;
+      var updatedSliderValue =
+        layout.xaxis.tickvals[parseInt(dropdown.value)] * 100;
 
-      slider.value = updatedSliderValue;
+      slider.value = updatedSliderValue + "";
       sliderValue.textContent = updatedSliderValue / 100 + "";
     });
 
