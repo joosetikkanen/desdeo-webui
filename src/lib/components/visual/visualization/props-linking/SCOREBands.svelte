@@ -146,6 +146,7 @@
           name: "Solutions: Cluster " + clusterId,
           showlegend: legend,
           type: "scatter",
+          visible: "legendonly",
         });
         legend = false;
       }
@@ -208,6 +209,7 @@
         name: "Median: Cluster " + clusterId,
         showlegend: true,
         type: "scatter",
+        visible: "legendonly",
       });
     }
 
