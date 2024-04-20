@@ -265,6 +265,8 @@
   /** State variable for keeping outermost axes static */
   var movableObjectives = objectivesPositions.slice(1, -1);
 
+  var initSliderValue = layout.xaxis.tickvals[1] * 100;
+
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
     const Plotly = await import("plotly.js-dist-min");
@@ -434,6 +436,19 @@
       "datasets"
     ) as HTMLSelectElement;
 
+    // Adjust the slider length and position to match the plot
+    const plotRect = document.querySelector(
+      "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
+    );
+
+    const rectPosition = plotRect.getBoundingClientRect();
+
+    slider.style.position = "absolute";
+    slider.style.width = rectPosition.width - 45 + "px";
+    slider.style.left = rectPosition.left + 23 + "px";
+    slider.style.top = 130 + "px";
+    slider.style.zIndex = "1";
+
     // Handle the dataset selector
     datasetsDropdown.addEventListener("change", function () {
       [data, layout, objectivesPositions] = parseData(datasets[this.value]);
@@ -441,6 +456,7 @@
       Plotly.react("SCOREBands", data, layout);
       sliderValue.textContent = movableObjectives[0][1] + "";
       dropdown.value = 1 + "";
+      initSliderValue = layout.xaxis.tickvals[1] * 100;
     });
 
     var axisOrigPos: number;
@@ -646,7 +662,7 @@
   });
 </script>
 
-<div>
+<div style="position: relative;">
   <div>
     Dataset:
     <select id="datasets">
@@ -663,13 +679,7 @@
         <option value={objectivesPositions.indexOf(obj)}>{obj[0]}</option>
       {/each}
     </select>
-    <input
-      type="range"
-      id="slider"
-      min="0"
-      max="100"
-      value={layout.xaxis.tickvals[1] * 100}
-    />
+    <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
     <span id="sliderValue">{movableObjectives[0][1]}</span>
   </div>
   <div id="SCOREBands" />
