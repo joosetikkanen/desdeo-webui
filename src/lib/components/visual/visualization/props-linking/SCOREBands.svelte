@@ -447,8 +447,8 @@
 
     slider.style.position = "absolute";
     slider.style.width = rectPosition.width - 45 + "px";
-    slider.style.left = rectPosition.left + 23 + "px";
-    slider.style.top = 130 + "px";
+    slider.style.left = 100 + "px";
+    slider.style.top = 84 + "px";
     slider.style.zIndex = "1";
 
     // Handle the dataset selector
@@ -664,7 +664,7 @@
   });
 </script>
 
-<div style="position: relative;">
+<div>
   <div>
     Dataset:
     <select id="datasets">
@@ -681,10 +681,12 @@
         <option value={objectivesPositions.indexOf(obj)}>{obj[0]}</option>
       {/each}
     </select>
-    <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
     <span id="sliderValue">{movableObjectives[0][1]}</span>
   </div>
-  <div id="SCOREBands" />
+  <div style="position: relative;">
+    <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
+    <div id="SCOREBands" />
+  </div>
 </div>
 
 <style>
