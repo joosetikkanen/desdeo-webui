@@ -434,6 +434,9 @@
     var slider = document.getElementById("slider") as HTMLInputElement;
     var sliderValue = document.getElementById("sliderValue") as HTMLSpanElement;
     var dropdown = document.getElementById("dropdown") as HTMLSelectElement;
+    var keepDistances = document.getElementById(
+      "keepDistances"
+    ) as HTMLInputElement;
     var resetButton = document.getElementById("reset") as HTMLButtonElement;
     var datasetsDropdown = document.getElementById(
       "datasets"
@@ -494,7 +497,12 @@
       sliderValue.textContent = parseInt(slider.value) / 100 + "";
     });
 
-    // Update datatraces and axis position when axis is repositioned with the slider. Perform axis swap if axis is moved within 5% distance of another axis or over.
+    /**
+     * Updates datatraces and axis position when axis is repositioned with the
+     * slider. Performs axis swap if axis is moved within 5% distance of another
+     * axis or over. When the "Keep distances" is checked, only performs the
+     * axis swap with same conditions.
+     */
     slider.addEventListener("mouseup", function () {
       /* var [newData, newLayout] = getUpdatedChartData(
         this.value,
@@ -524,26 +532,29 @@
 
       let axisNewPos = parseInt(this.value) / 100;
       let refAxisIndex: number;
-      let resetPos;
+      //let resetPos;
       let swap = false;
 
       // Determine which direction the axis was moved
       if (axisOrigPos - axisNewPos > 0) {
         // Left
         refAxisIndex = selectedAxisIndex - 1;
-        resetPos = origTickVals[refAxisIndex] + 0.05;
-        swap = axisNewPos <= resetPos;
+        //resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] + 0.05;
+        //resetPos = origTickVals[refAxisIndex] + 0.05;
+        swap = axisNewPos <= origTickVals[refAxisIndex] + 0.05;
       } else {
         // Right
         refAxisIndex = selectedAxisIndex + 1;
-        resetPos = origTickVals[refAxisIndex] - 0.05;
-        swap = axisNewPos >= resetPos;
+        // resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] - 0.05;
+        //resetPos = origTickVals[refAxisIndex] - 0.05;
+        swap = axisNewPos >= origTickVals[refAxisIndex] - 0.05;
       }
 
       let newTickVals: number[] = [...origTickVals];
 
       if (swap) {
-        newTickVals[selectedAxisIndex] = resetPos;
+        //newTickVals[selectedAxisIndex] = resetPos;
+        newTickVals[selectedAxisIndex] = axisOrigPos;
 
         updatedTraces = data.map((trace) => {
           if (trace.mode === "text" && Array.isArray(trace.text)) {
@@ -590,11 +601,16 @@
           dropdown.value = refAxisIndex + "";
         }
       } else {
-        newTickVals[selectedAxisIndex] = axisNewPos;
-        updatedTraces = data.map((trace) => {
-          trace.x = newTickVals;
-          return trace;
-        });
+        if (keepDistances.checked) {
+          slider.value = axisOrigPos * 100 + "";
+          return;
+        } else {
+          newTickVals[selectedAxisIndex] = axisNewPos;
+          updatedTraces = data.map((trace) => {
+            trace.x = newTickVals;
+            return trace;
+          });
+        }
       }
 
       /* for (let i = 0; i < newTickVals.length - 1; i++) {
@@ -697,8 +713,10 @@
         <option value={objectivesPositions.indexOf(obj)}>{obj[0]}</option>
       {/each}
     </select>
-    <span id="sliderValue">{movableObjectives[0][1]}</span>
+    Keep distances <input type="checkbox" id="keepDistances" checked />
     <button id="reset">Reset</button>
+    <br />
+    <span id="sliderValue">{movableObjectives[0][1]}</span>
   </div>
   <div style="position: relative;">
     <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
@@ -710,5 +728,7 @@
   #reset {
     border: outset;
     border-color: lightgrey;
+    float: right;
+    padding: 5px;
   }
 </style>
