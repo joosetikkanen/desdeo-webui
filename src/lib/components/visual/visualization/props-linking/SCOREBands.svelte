@@ -434,6 +434,7 @@
     var slider = document.getElementById("slider") as HTMLInputElement;
     var sliderValue = document.getElementById("sliderValue") as HTMLSpanElement;
     var dropdown = document.getElementById("dropdown") as HTMLSelectElement;
+    var resetButton = document.getElementById("reset") as HTMLButtonElement;
     var datasetsDropdown = document.getElementById(
       "datasets"
     ) as HTMLSelectElement;
@@ -451,14 +452,29 @@
     slider.style.top = 84 + "px";
     slider.style.zIndex = "1";
 
-    // Handle the dataset selector
-    datasetsDropdown.addEventListener("change", function () {
-      [data, layout, objectivesPositions] = parseData(datasets[this.value]);
+    /**
+     * Reinitializes the plot with the given dataset
+     *
+     * @param datasetKey Key to the dataset
+     */
+    function reinitialize(datasetKey: string) {
+      [data, layout, objectivesPositions] = parseData(datasets[datasetKey]);
       movableObjectives = objectivesPositions.slice(1, -1);
       Plotly.react("SCOREBands", data, layout);
       sliderValue.textContent = movableObjectives[0][1] + "";
       dropdown.value = 1 + "";
       initSliderValue = layout.xaxis.tickvals[1] * 100;
+      slider.value = initSliderValue + "";
+    }
+
+    // Handle the plot reset button
+    resetButton.addEventListener("click", () => {
+      reinitialize(datasetsDropdown.value);
+    });
+
+    // Handle the dataset selector
+    datasetsDropdown.addEventListener("change", function () {
+      reinitialize(this.value);
     });
 
     var axisOrigPos: number;
@@ -682,6 +698,7 @@
       {/each}
     </select>
     <span id="sliderValue">{movableObjectives[0][1]}</span>
+    <button id="reset">Reset</button>
   </div>
   <div style="position: relative;">
     <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
@@ -690,4 +707,8 @@
 </div>
 
 <style>
+  #reset {
+    border: outset;
+    border-color: lightgrey;
+  }
 </style>
