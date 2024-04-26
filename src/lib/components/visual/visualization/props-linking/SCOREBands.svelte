@@ -17,7 +17,7 @@
   var datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
   // Hexadecimal value in range of 00-FF
-  let solutionOpacity = "ff";
+  let solutionOpacity = "50";
   let bandOpacity = "aa";
 
   /**
@@ -391,18 +391,24 @@
      */
     plot.on("plotly_selected", function (eventData) {
       const indices = [];
-      const updatedFillcolors = [];
+      let updatedLineColors = [];
 
       for (let i = 0; i < data.length; i++) {
-        let fillcolor = data[i].fillcolor;
-        if (fillcolor) {
+        let line = data[i].line;
+        if (line && line.color) {
           indices.push(i);
-          updatedFillcolors.push(fillcolor.slice(0, -2) + "77");
+          updatedLineColors.push(
+            line.color.toString().slice(0, -2) + solutionOpacity
+          );
         }
       }
 
       // Remove highlights
-      Plotly.restyle("SCOREBands", { fillcolor: updatedFillcolors }, indices);
+      Plotly.restyle(
+        "SCOREBands",
+        { "line.color": updatedLineColors },
+        indices
+      );
 
       const updatedLayout = {
         ...layout,
@@ -421,7 +427,7 @@
 
         //reAddSelectBox();
 
-        const selectedFillcolors = eventData.points.filter(
+        /* const selectedFillcolors = eventData.points.filter(
           (point) => point.data.fillcolor
         );
 
@@ -431,12 +437,28 @@
 
         const updatedFillcolors = selectedFillcolors.map(
           (point) => point.data.fillcolor.slice(0, -2) + "ff"
+        ); */
+
+        const selectedLineColors = eventData.points.filter(
+          (point) =>
+            point.data.line &&
+            point.data.line.color &&
+            point.data.name.startsWith("Solutions")
+        );
+
+        const selectedIndices = selectedLineColors.map(
+          (point) => point.curveNumber
+        );
+
+        const updatedLineColors = selectedLineColors.map(
+          (point) => point.data.line.color.slice(0, -2) + "ff"
+          //() => "red"
         );
 
         // Highlight selected traces
         Plotly.restyle(
           "SCOREBands",
-          { fillcolor: updatedFillcolors },
+          { "line.color": updatedLineColors },
           selectedIndices
         );
       }
