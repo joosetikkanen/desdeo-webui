@@ -129,27 +129,7 @@
     let data: Partial<PlotData>[] = [];
 
     for (let clusterId in groupedData) {
-      let legend = true;
-
-      // Individual solutions
-      for (let solution of groupedData[clusterId]) {
-        data.push({
-          x: axisPositions,
-          y: axisLabels.map((label) => {
-            return solution[label];
-          }),
-          line: {
-            color: colorPalette[clusterId] + solutionOpacity,
-          },
-          legendgroup: "Solutions: Cluster " + clusterId,
-          mode: "lines+markers",
-          name: "Solutions: Cluster " + clusterId,
-          showlegend: legend,
-          type: "scatter",
-          visible: "legendonly",
-        });
-        legend = false;
-      }
+      let solutionCount = groupedData[clusterId].length;
 
       // Lower bound of the band
       data.push({
@@ -184,10 +164,31 @@
         marker: { color: "transparent" },
         legendgroup: "50% band: Cluster " + clusterId,
         mode: "lines+markers",
-        name: "50% band: Cluster " + clusterId,
+        name: `50% band: Cluster ${clusterId}; ${solutionCount} Solutions`,
         showlegend: true,
         type: "scatter",
       });
+
+      let legend = true;
+      // Individual solutions
+      for (let solution of groupedData[clusterId]) {
+        data.push({
+          x: axisPositions,
+          y: axisLabels.map((label) => {
+            return solution[label];
+          }),
+          line: {
+            color: colorPalette[clusterId] + solutionOpacity,
+          },
+          legendgroup: "Solutions: Cluster " + clusterId,
+          mode: "lines+markers",
+          name: "Solutions: Cluster " + clusterId,
+          showlegend: legend,
+          type: "scatter",
+          visible: "legendonly",
+        });
+        legend = false;
+      }
 
       // Median
       data.push({
@@ -231,7 +232,7 @@
       plot_bgcolor: "rgb(229,229,229)",
       xaxis: {
         gridcolor: "rgb(255,255,255)",
-        range: [-0.05, 1.05],
+        //range: [0, 1],
         showgrid: true,
         showline: false,
         showticklabels: true,
@@ -243,16 +244,27 @@
       },
       yaxis: {
         gridcolor: "rgb(255,255,255)",
-        range: [0, 1.2],
+        //range: [0, 1.2],
         showgrid: false,
         showline: false,
         showticklabels: false,
         tickcolor: "rgb(127,127,127)",
-        ticks: "outside",
+        ticks: "",
         zeroline: false,
         fixedrange: true,
       },
       dragmode: "select",
+
+      /* sliders: [{
+        pad: {t: 30, l: 30, r: 30},
+        steps: Array.from({ length: 101 }, (_, index) => ({ 
+          value: index / 100 + "",
+          label: '',
+          method: 'skip',
+          args: ['line.color', 'green']
+         }))
+      }]
+      */
     };
 
     return [data, layout, objectivesPositions];
@@ -442,18 +454,13 @@
       "datasets"
     ) as HTMLSelectElement;
 
-    // Adjust the slider length and position to match the plot
-    const plotRect = document.querySelector(
+    // Adjust the slider width to match the plot
+    var plotRect = document.querySelector(
       "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
     );
 
     const rectPosition = plotRect.getBoundingClientRect();
-
-    slider.style.position = "absolute";
-    slider.style.width = rectPosition.width - 45 + "px";
-    slider.style.left = 100 + "px";
-    slider.style.top = 84 + "px";
-    slider.style.zIndex = "1";
+    slider.style.width = rectPosition.width - 50 + "px";
 
     /**
      * Reinitializes the plot with the given dataset
@@ -468,6 +475,12 @@
       dropdown.value = 1 + "";
       initSliderValue = layout.xaxis.tickvals[1] * 100;
       slider.value = initSliderValue + "";
+
+      plotRect = document.querySelector(
+        "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
+      );
+      const rectPosition = plotRect.getBoundingClientRect();
+      slider.style.width = rectPosition.width - 50 + "px";
     }
 
     // Handle the plot reset button
@@ -725,6 +738,13 @@
 </div>
 
 <style>
+  #slider {
+    position: absolute;
+    left: 105px;
+    top: 84px;
+    z-index: 1;
+  }
+
   #reset {
     border: outset;
     border-color: lightgrey;
