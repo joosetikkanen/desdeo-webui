@@ -233,11 +233,11 @@
       xaxis: {
         gridcolor: "rgb(255,255,255)",
         //range: [0, 1],
-        showgrid: true,
-        showline: false,
-        showticklabels: true,
+        //showgrid: true,
+        //showline: false,
+        showticklabels: false,
         tickcolor: "rgb(127,127,127)",
-        ticks: "outside",
+        ticks: "",
         zeroline: false,
         tickvals: axisPositions,
         fixedrange: true,
@@ -246,7 +246,7 @@
         gridcolor: "rgb(255,255,255)",
         //range: [0, 1.2],
         showgrid: false,
-        showline: false,
+        //showline: false,
         showticklabels: false,
         tickcolor: "rgb(127,127,127)",
         ticks: "",
@@ -460,7 +460,8 @@
     );
 
     const rectPosition = plotRect.getBoundingClientRect();
-    slider.style.width = rectPosition.width - 50 + "px";
+    const axisMargins = 50;
+    slider.style.width = rectPosition.width - axisMargins + "px";
 
     /**
      * Reinitializes the plot with the given dataset
@@ -480,7 +481,7 @@
         "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
       );
       const rectPosition = plotRect.getBoundingClientRect();
-      slider.style.width = rectPosition.width - 50 + "px";
+      slider.style.width = rectPosition.width - axisMargins + "px";
     }
 
     // Handle the plot reset button
@@ -729,7 +730,7 @@
     Keep distances <input type="checkbox" id="keepDistances" checked />
     <button id="reset">Reset</button>
     <br />
-    <span id="sliderValue">{movableObjectives[0][1]}</span>
+    <span id="sliderValue" hidden>{movableObjectives[0][1]}</span>
   </div>
   <div style="position: relative;">
     <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
