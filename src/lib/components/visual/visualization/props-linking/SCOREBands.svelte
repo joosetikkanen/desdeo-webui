@@ -138,7 +138,7 @@
           return jsonBands[clusterId].lower_bound[label];
         }),
         line: {
-          color: colorPalette[clusterId] + solutionOpacity,
+          color: colorPalette[clusterId] + "ff",
           shape: "spline",
         },
         marker: { color: "transparent" },
@@ -158,7 +158,7 @@
         fill: "tonexty",
         fillcolor: colorPalette[clusterId] + bandOpacity,
         line: {
-          color: colorPalette[clusterId] + solutionOpacity,
+          color: colorPalette[clusterId] + "ff",
           shape: "spline",
         },
         marker: { color: "transparent" },
@@ -197,7 +197,7 @@
           return jsonBands[clusterId].median[label];
         }),
         line: {
-          color: colorPalette[clusterId] + solutionOpacity,
+          color: colorPalette[clusterId] + "ff",
         },
         marker: {
           line: {
@@ -232,7 +232,7 @@
       plot_bgcolor: "rgb(229,229,229)",
       xaxis: {
         gridcolor: "rgb(255,255,255)",
-        //range: [0, 1],
+        range: [-0.05, 1.05],
         //showgrid: true,
         //showline: false,
         showticklabels: false,
@@ -244,7 +244,7 @@
       },
       yaxis: {
         gridcolor: "rgb(255,255,255)",
-        //range: [0, 1.2],
+        range: [0, 1.2],
         showgrid: false,
         //showline: false,
         showticklabels: false,
@@ -395,7 +395,7 @@
 
       for (let i = 0; i < data.length; i++) {
         let line = data[i].line;
-        if (line && line.color) {
+        if (line && line.color && data[i].name.startsWith("Solutions")) {
           indices.push(i);
           updatedLineColors.push(
             line.color.toString().slice(0, -2) + solutionOpacity
