@@ -26,6 +26,7 @@
     "echarts": "^5.4.2",
     "file-saver": "^2.0.5",
     "immer": "^10.0.2",
+    "lodash": "^4.17.21",
     "mathlive": "^0.95.4",
     "plotly.js": "^2.30.0",
     "plotly.js-dist": "^2.30.0",

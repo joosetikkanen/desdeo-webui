@@ -13,12 +13,32 @@
     PlotData,
     PlotlyHTMLElement,
   } from "plotly.js";
+  import _ from "lodash";
 
-  var datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
+  const datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
   // Hexadecimal value in range of 00-FF
   let solutionOpacity = "50";
   let bandOpacity = "aa";
+
+  // Amount of evenly spaced numbers visible on each axis
+  const steps = 6;
+
+  const axisValueHeights = Array.from(
+    { length: steps },
+    (_, i) => (1 / (steps - 1)) * i
+  );
+
+  /**
+   * State variables for plot data, layout and objective labels with their
+   * positions
+   */
+  var [data, layout, objectivesPositions] = parseData(datasets.dtlz7);
+
+  /** State variable for keeping outermost axes static */
+  var movableObjectives = objectivesPositions.slice(1, -1);
+
+  var initSliderValue = layout.xaxis.tickvals[1] * 100;
 
   /**
    * Parses the solutions, bands and objective axis positions given in JSON
@@ -31,9 +51,10 @@
   function parseData(
     json
   ): [Partial<PlotData>[], Partial<Layout>, [string, number][]] {
-    var jsonData = [...json.data];
+    // Deep cloning of the solution data is required for preserving the original values after scaling them to the range of 0 to 1.
+    const jsonData = _.cloneDeep(json.data);
 
-    var jsonBands = { ...json.bands };
+    let jsonBands = { ...json.bands };
 
     let objectivesPositions: [string, number][] = Object.entries(
       json.positions
@@ -73,8 +94,22 @@
       }
     }
 
+    const axisValueLabels: { [key: string]: string[] } = {};
+
+    // Generate evenly spaced arrays for each key
+    Object.keys(minValues).forEach((key) => {
+      const min = minValues[key];
+      const max = maxValues[key];
+      const step = (max - min) / (steps - 1);
+      axisValueLabels[key] = Array.from({ length: steps }, (_, i) =>
+        (min + step * i).toFixed(1)
+      );
+    });
+
+    const scaledData = [...jsonData];
+
     // Scale each field in each object to the range of 0 to 1
-    for (const obj of jsonData) {
+    for (const obj of scaledData) {
       for (const key of Object.keys(obj)) {
         if (key === "group") {
           continue;
@@ -117,7 +152,7 @@
     }
 
     // Group the data by the cluster key
-    const groupedData = jsonData.reduce((acc, obj) => {
+    const groupedData = scaledData.reduce((acc, obj) => {
       const groupKey = obj.group;
       if (!acc[groupKey]) {
         acc[groupKey] = [];
@@ -226,13 +261,31 @@
       type: "scatter",
     });
 
+    // Objective axes
+    for (let obj of objectivesPositions) {
+      data.push({
+        x: axisValueHeights.map(() => obj[1]),
+        y: axisValueHeights,
+        mode: "text+lines+markers",
+        name: "Objective axis " + obj[0],
+        text: axisValueLabels[obj[0]],
+        textposition: "middle left",
+        textfont: { size: 10 },
+        type: "scatter",
+        line: {
+          color: "black",
+        },
+        showlegend: false,
+      });
+    }
+
     // The initial layout
     let layout: Partial<Layout> = {
       paper_bgcolor: "rgb(255,255,255)",
       plot_bgcolor: "rgb(229,229,229)",
       xaxis: {
         gridcolor: "rgb(255,255,255)",
-        range: [-0.05, 1.05],
+        range: [-0.1, 1.1],
         //showgrid: true,
         //showline: false,
         showticklabels: false,
@@ -244,7 +297,7 @@
       },
       yaxis: {
         gridcolor: "rgb(255,255,255)",
-        range: [0, 1.2],
+        range: [-0.05, 1.2],
         showgrid: false,
         //showline: false,
         showticklabels: false,
@@ -269,17 +322,6 @@
 
     return [data, layout, objectivesPositions];
   }
-
-  /**
-   * State variables for plot data, layout and objective labels with their
-   * positions
-   */
-  var [data, layout, objectivesPositions] = parseData(datasets.dtlz7);
-
-  /** State variable for keeping outermost axes static */
-  var movableObjectives = objectivesPositions.slice(1, -1);
-
-  var initSliderValue = layout.xaxis.tickvals[1] * 100;
 
   // Seems that plotly.js only works in the browser, so have to use dynamic import
   onMount(async () => {
@@ -476,14 +518,19 @@
       "datasets"
     ) as HTMLSelectElement;
 
+    /* var plotRect = document.querySelector(
+      "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
+    ); */
+
     // Adjust the slider width to match the plot
     var plotRect = document.querySelector(
-      "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
+      "#SCOREBands > div > div > svg:nth-child(1) > g.cartesianlayer > g > g.gridlayer"
     );
 
     const rectPosition = plotRect.getBoundingClientRect();
-    const axisMargins = 50;
-    slider.style.width = rectPosition.width - axisMargins + "px";
+
+    slider.style.width = rectPosition.width + "px";
+    slider.style.left = rectPosition.left + "px";
 
     /**
      * Reinitializes the plot with the given dataset
@@ -500,10 +547,11 @@
       slider.value = initSliderValue + "";
 
       plotRect = document.querySelector(
-        "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
+        "#SCOREBands > div > div > svg:nth-child(1) > g.cartesianlayer > g > g.gridlayer"
       );
       const rectPosition = plotRect.getBoundingClientRect();
-      slider.style.width = rectPosition.width - axisMargins + "px";
+      slider.style.width = rectPosition.width + "px";
+      slider.style.left = rectPosition.left + "px";
     }
 
     // Handle the plot reset button
@@ -565,9 +613,12 @@
       let updatedTraces;
       let origTickVals = [...layout.xaxis.tickvals];
       let selectedAxisIndex: number = parseInt(dropdown.value);
+      let selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
 
       let axisNewPos = parseInt(this.value) / 100;
       let refAxisIndex: number;
+      let refAxisLabel: string;
+      let refAxisPosition: number;
       //let resetPos;
       let swap = false;
 
@@ -581,10 +632,13 @@
       } else {
         // Right
         refAxisIndex = selectedAxisIndex + 1;
+
         // resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] - 0.05;
         //resetPos = origTickVals[refAxisIndex] - 0.05;
         swap = axisNewPos >= origTickVals[refAxisIndex] - 0.05;
       }
+      refAxisLabel = objectivesPositions[refAxisIndex][0];
+      refAxisPosition = objectivesPositions[refAxisIndex][1];
 
       let newTickVals: number[] = [...origTickVals];
 
@@ -599,6 +653,21 @@
               trace.text[refAxisIndex],
               trace.text[selectedAxisIndex],
             ];
+          }
+
+          // Swap objective axes
+          if (trace.name && trace.name.startsWith("Objective axis")) {
+            if (trace.name.endsWith(selectedAxisLabel)) {
+              trace.x = axisValueHeights.map(() => refAxisPosition);
+              return trace;
+            }
+
+            if (trace.name.endsWith(refAxisLabel)) {
+              trace.x = axisValueHeights.map(() => axisOrigPos);
+              return trace;
+            }
+            // Leave other axes as is
+            return trace;
           }
 
           // Swap data trace positions
@@ -616,11 +685,11 @@
 
         // Swap objectives/positions and update corresponding state variables
         [
-          objectivesPositions[selectedAxisIndex],
-          objectivesPositions[refAxisIndex],
+          objectivesPositions[selectedAxisIndex][0],
+          objectivesPositions[refAxisIndex][0],
         ] = [
-          objectivesPositions[refAxisIndex],
-          objectivesPositions[selectedAxisIndex],
+          objectivesPositions[refAxisIndex][0],
+          objectivesPositions[selectedAxisIndex][0],
         ];
         movableObjectives = objectivesPositions.slice(1, -1);
 
@@ -637,15 +706,31 @@
           dropdown.value = refAxisIndex + "";
         }
       } else {
+        // Handle the repositioning of selected axis
         if (keepDistances.checked) {
           slider.value = axisOrigPos * 100 + "";
           return;
         } else {
           newTickVals[selectedAxisIndex] = axisNewPos;
+
           updatedTraces = data.map((trace) => {
+            if (trace.name && trace.name.startsWith("Objective axis")) {
+              // Reposition the axis
+              if (trace.name.endsWith(selectedAxisLabel)) {
+                trace.x = axisValueHeights.map(() => axisNewPos);
+                return trace;
+              } else {
+                // Leave other axes as is
+                return trace;
+              }
+            }
+
+            // Reposition data traces
             trace.x = newTickVals;
             return trace;
           });
+
+          objectivesPositions[selectedAxisIndex][1] = axisNewPos;
         }
       }
 
@@ -763,7 +848,6 @@
 <style>
   #slider {
     position: absolute;
-    left: 105px;
     top: 84px;
     z-index: 1;
   }
