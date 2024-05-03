@@ -38,7 +38,9 @@
   /** State variable for keeping outermost axes static */
   var movableObjectives = objectivesPositions.slice(1, -1);
 
-  var initSliderValue = layout.xaxis.tickvals[1] * 100;
+  var initSliderValue = layout.xaxis.tickvals[1];
+
+  var enableSwapping: boolean;
 
   /**
    * Parses the solutions, bands and objective axis positions given in JSON
@@ -307,6 +309,12 @@
         fixedrange: true,
       },
       dragmode: "select",
+      margin: {
+        l: 15,
+        b: 15,
+        t: 50,
+        r: 0,
+      },
 
       /* sliders: [{
         pad: {t: 30, l: 30, r: 30},
@@ -517,6 +525,101 @@
     var datasetsDropdown = document.getElementById(
       "datasets"
     ) as HTMLSelectElement;
+    var swapLeft = document.getElementById("swapLeft") as HTMLButtonElement;
+    var swapRight = document.getElementById("swapRight") as HTMLButtonElement;
+
+    keepDistances.addEventListener("change", (e) => {
+      enableSwapping = e.target.checked;
+    });
+
+    swapLeft.addEventListener("click", () => {
+      let refAxisIndex = parseInt(dropdown.value) - 1;
+      swapAxes(refAxisIndex);
+    });
+
+    swapRight.addEventListener("click", () => {
+      let refAxisIndex = parseInt(dropdown.value) + 1;
+      swapAxes(refAxisIndex);
+    });
+
+    function swapAxes(refAxisIndex: number) {
+      let axisOrigPos = layout.xaxis.tickvals[parseInt(dropdown.value)];
+      let refAxisPosition = objectivesPositions[refAxisIndex][1];
+      let refAxisLabel = objectivesPositions[refAxisIndex][0];
+      let selectedAxisIndex = parseInt(dropdown.value);
+      let selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
+      let newTickVals = [...layout.xaxis.tickvals];
+      newTickVals[selectedAxisIndex] = axisOrigPos;
+
+      let updatedTraces = data.map((trace) => {
+        if (trace.mode === "text" && Array.isArray(trace.text)) {
+          // Swap objective labels
+          [trace.text[selectedAxisIndex], trace.text[refAxisIndex]] = [
+            trace.text[refAxisIndex],
+            trace.text[selectedAxisIndex],
+          ];
+        }
+
+        // Swap objective axes
+        if (trace.name && trace.name.startsWith("Objective axis")) {
+          if (trace.name.endsWith(selectedAxisLabel)) {
+            trace.x = axisValueHeights.map(() => refAxisPosition);
+            return trace;
+          }
+
+          if (trace.name.endsWith(refAxisLabel)) {
+            trace.x = axisValueHeights.map(() => axisOrigPos);
+            return trace;
+          }
+          // Leave other axes as is
+          return trace;
+        }
+
+        // Swap data trace positions
+        [trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [
+          trace.y[refAxisIndex],
+          trace.y[selectedAxisIndex],
+        ];
+        /* let temp = trace.y[selectedAxisIndex];
+        trace.y[selectedAxisIndex] = trace.y[refAxisIndex];
+        trace.y[refAxisIndex] = temp; */
+        trace.x = newTickVals;
+        //[trace.x[selectedAxisIndex], trace.x[refAxisIndex]] = [trace.x[refAxisIndex], trace.x[selectedAxisIndex]]
+        return trace;
+      });
+
+      // Swap objectives/positions and update corresponding state variables
+      [
+        objectivesPositions[selectedAxisIndex][0],
+        objectivesPositions[refAxisIndex][0],
+      ] = [
+        objectivesPositions[refAxisIndex][0],
+        objectivesPositions[selectedAxisIndex][0],
+      ];
+      movableObjectives = objectivesPositions.slice(1, -1);
+
+      // Update slider and selected objective accordingly. Keep the objective selected if not swapped with one of the outermost axes.
+      if (
+        newTickVals[refAxisIndex] <= 0.05 ||
+        newTickVals[refAxisIndex] >= 0.95
+      ) {
+        slider.value = newTickVals[selectedAxisIndex] + "";
+        sliderValue.textContent = newTickVals[selectedAxisIndex] + "";
+      } else {
+        slider.value = newTickVals[refAxisIndex] + "";
+        sliderValue.textContent = newTickVals[refAxisIndex] + "";
+        dropdown.value = refAxisIndex + "";
+      }
+
+      let updatedLayout = { ...layout };
+      updatedLayout.xaxis.tickvals = newTickVals;
+
+      Plotly.react("SCOREBands", updatedTraces, updatedLayout);
+
+      // Refresh the plot state variables
+      data = updatedTraces;
+      layout = updatedLayout;
+    }
 
     /* var plotRect = document.querySelector(
       "#SCOREBands > div > div > svg:nth-child(1) > g.bglayer > rect"
@@ -543,7 +646,7 @@
       Plotly.react("SCOREBands", data, layout);
       sliderValue.textContent = movableObjectives[0][1] + "";
       dropdown.value = 1 + "";
-      initSliderValue = layout.xaxis.tickvals[1] * 100;
+      initSliderValue = layout.xaxis.tickvals[1];
       slider.value = initSliderValue + "";
 
       plotRect = document.querySelector(
@@ -588,188 +691,102 @@
      * axis swap with same conditions.
      */
     slider.addEventListener("mouseup", function () {
-      /* var [newData, newLayout] = getUpdatedChartData(
-        this.value,
-        dropdown.value
-      );
-
-      Plotly.react("SCOREBands", newData, newLayout); */
-
-      /* let updatedTraces = [...data];
-      updatedTraces.forEach((trace) => {
-        trace.x[dropdownValue] = sliderValue / 100;
-      });
-
-      let newTickVals = [...layout.xaxis.tickvals];
-      newTickVals[dropdownValue] = sliderValue / 100;
-
-      let updatedLayout = { ...layout };
-      updatedLayout.xaxis.tickvals = newTickVals;
-
-      // Refresh the current state of the plot
-      data = updatedTraces;
-      layout = updatedLayout; */
-
       let updatedTraces;
       let origTickVals = [...layout.xaxis.tickvals];
       let selectedAxisIndex: number = parseInt(dropdown.value);
       let selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
 
-      let axisNewPos = parseInt(this.value) / 100;
-      let refAxisIndex: number;
-      let refAxisLabel: string;
-      let refAxisPosition: number;
-      //let resetPos;
-      let swap = false;
+      let selectedAxisNewPos = parseFloat(this.value);
 
-      // Determine which direction the axis was moved
+      for (let i = 0; i < origTickVals.length; i++) {
+        let axisPos = origTickVals[i];
+
+        if (origTickVals.indexOf(axisPos) === selectedAxisIndex) continue;
+
+        let dist = selectedAxisNewPos - axisPos;
+
+        if (i === 0 && dist <= 0.05) {
+          selectedAxisNewPos = 0.05;
+          break;
+        }
+        if (i === origTickVals.length - 1 && dist > -0.05) {
+          selectedAxisNewPos = 0.95;
+        }
+
+        if (dist > -0.05 && dist < 0) {
+          selectedAxisNewPos = axisPos - 0.05;
+          break;
+        } else if (dist < 0.05 && dist > 0) {
+          selectedAxisNewPos = axisPos + 0.05;
+          break;
+        }
+      }
+
+      this.setAttribute("value", selectedAxisNewPos + "");
+      this.value = selectedAxisNewPos + "";
+
+      this.dispatchEvent(new Event("change", { bubbles: true }));
+
+      /* // Determine which direction the axis was moved
       if (axisOrigPos - axisNewPos > 0) {
         // Left
-        refAxisIndex = selectedAxisIndex - 1;
+        //refAxisIndex = selectedAxisIndex - 1;
         //resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] + 0.05;
         //resetPos = origTickVals[refAxisIndex] + 0.05;
-        swap = axisNewPos <= origTickVals[refAxisIndex] + 0.05;
+        //swap = axisNewPos <= origTickVals[refAxisIndex] + 0.05 && axisNewPos > origTickVals[refAxisIndex] - 0.05;
       } else {
         // Right
-        refAxisIndex = selectedAxisIndex + 1;
+        //refAxisIndex = selectedAxisIndex + 1;
 
         // resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] - 0.05;
         //resetPos = origTickVals[refAxisIndex] - 0.05;
-        swap = axisNewPos >= origTickVals[refAxisIndex] - 0.05;
+        //swap = axisNewPos >= origTickVals[refAxisIndex] - 0.05 && axisNewPos < origTickVals[refAxisIndex] + 0.05;
       }
-      refAxisLabel = objectivesPositions[refAxisIndex][0];
-      refAxisPosition = objectivesPositions[refAxisIndex][1];
+      /* refAxisLabel = objectivesPositions[refAxisIndex][0];
+      refAxisPosition = objectivesPositions[refAxisIndex][1]; */
 
       let newTickVals: number[] = [...origTickVals];
 
-      if (swap) {
-        //newTickVals[selectedAxisIndex] = resetPos;
-        newTickVals[selectedAxisIndex] = axisOrigPos;
+      // Handle the repositioning of selected axis
+      if (keepDistances.checked) {
+        slider.value = axisOrigPos + "";
+        return;
+      } else {
+        newTickVals[selectedAxisIndex] = selectedAxisNewPos;
+        newTickVals.sort((a, b) => a - b);
+        const newPosIndex = newTickVals.indexOf(selectedAxisNewPos);
 
         updatedTraces = data.map((trace) => {
           if (trace.mode === "text" && Array.isArray(trace.text)) {
-            // Swap objective labels
-            [trace.text[selectedAxisIndex], trace.text[refAxisIndex]] = [
-              trace.text[refAxisIndex],
-              trace.text[selectedAxisIndex],
-            ];
+            const labelToMove = trace.text[selectedAxisIndex];
+            trace.text.splice(selectedAxisIndex, 1);
+            trace.text.splice(newPosIndex, 0, labelToMove);
           }
-
-          // Swap objective axes
           if (trace.name && trace.name.startsWith("Objective axis")) {
+            // Reposition the axis
             if (trace.name.endsWith(selectedAxisLabel)) {
-              trace.x = axisValueHeights.map(() => refAxisPosition);
+              trace.x = axisValueHeights.map(() => selectedAxisNewPos);
+              return trace;
+            } else {
+              // Leave other axes as is
               return trace;
             }
-
-            if (trace.name.endsWith(refAxisLabel)) {
-              trace.x = axisValueHeights.map(() => axisOrigPos);
-              return trace;
-            }
-            // Leave other axes as is
-            return trace;
           }
 
-          // Swap data trace positions
-          [trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [
-            trace.y[refAxisIndex],
-            trace.y[selectedAxisIndex],
-          ];
-          /* let temp = trace.y[selectedAxisIndex];
-          trace.y[selectedAxisIndex] = trace.y[refAxisIndex];
-          trace.y[refAxisIndex] = temp; */
+          // Reposition data traces
+          const valueToMove = trace.y[selectedAxisIndex];
+          trace.y.splice(selectedAxisIndex, 1);
+          trace.y.splice(newPosIndex, 0, valueToMove);
+
           trace.x = newTickVals;
-          //[trace.x[selectedAxisIndex], trace.x[refAxisIndex]] = [trace.x[refAxisIndex], trace.x[selectedAxisIndex]]
           return trace;
         });
 
-        // Swap objectives/positions and update corresponding state variables
-        [
-          objectivesPositions[selectedAxisIndex][0],
-          objectivesPositions[refAxisIndex][0],
-        ] = [
-          objectivesPositions[refAxisIndex][0],
-          objectivesPositions[selectedAxisIndex][0],
-        ];
+        objectivesPositions[selectedAxisIndex][1] = selectedAxisNewPos;
+        objectivesPositions = objectivesPositions.sort((a, b) => a[1] - b[1]);
         movableObjectives = objectivesPositions.slice(1, -1);
-
-        // Update slider and selected objective accordingly. Keep the objective selected if not swapped with one of the outermost axes.
-        if (
-          newTickVals[refAxisIndex] <= 0.05 ||
-          newTickVals[refAxisIndex] >= 0.95
-        ) {
-          slider.value = newTickVals[selectedAxisIndex] * 100 + "";
-          sliderValue.textContent = newTickVals[selectedAxisIndex] + "";
-        } else {
-          slider.value = newTickVals[refAxisIndex] * 100 + "";
-          sliderValue.textContent = newTickVals[refAxisIndex] + "";
-          dropdown.value = refAxisIndex + "";
-        }
-      } else {
-        // Handle the repositioning of selected axis
-        if (keepDistances.checked) {
-          slider.value = axisOrigPos * 100 + "";
-          return;
-        } else {
-          newTickVals[selectedAxisIndex] = axisNewPos;
-
-          updatedTraces = data.map((trace) => {
-            if (trace.name && trace.name.startsWith("Objective axis")) {
-              // Reposition the axis
-              if (trace.name.endsWith(selectedAxisLabel)) {
-                trace.x = axisValueHeights.map(() => axisNewPos);
-                return trace;
-              } else {
-                // Leave other axes as is
-                return trace;
-              }
-            }
-
-            // Reposition data traces
-            trace.x = newTickVals;
-            return trace;
-          });
-
-          objectivesPositions[selectedAxisIndex][1] = axisNewPos;
-        }
+        dropdown.value = newPosIndex + "";
       }
-
-      /* for (let i = 0; i < newTickVals.length - 1; i++) {
-        let dist =
-          Math.round(Math.abs(newTickVals[i] - newTickVals[i + 1]) * 100) / 100;
-        if (dist <= 0.05) {
-          // Reset minimum distance of the axes to 5%
-          let residue = Math.abs(0.05 - dist);
-          if (i == selectedObjectiveIndex) {
-            newTickVals[selectedObjectiveIndex] -= residue;
-          } else {
-            newTickVals[selectedObjectiveIndex] += residue;
-          }
-
-          for (let j = 0; j < updatedTraces.length; j++) {
-            if (updatedTraces[j].mode === "text") {
-              // Swap objective labels
-              [updatedTraces[j].text[i], updatedTraces[j].text[i + 1]] = [
-                updatedTraces[j].text[i + 1],
-                updatedTraces[j].text[i],
-              ];
-            }
-            // Swap data trace positions
-            [updatedTraces[j].y[i], updatedTraces[j].y[i + 1]] = [
-              updatedTraces[j].y[i + 1],
-              updatedTraces[j].y[i],
-            ];
-
-            updatedTraces[j].x = newTickVals;
-          }
-
-          [objectivesPositions[i], objectivesPositions[i + 1]] = [
-            objectivesPositions[i + 1],
-            objectivesPositions[i],
-          ];
-          movableObjectives = objectivesPositions.slice(1, -1);
-        }
-      } */
 
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
@@ -782,8 +799,7 @@
     });
 
     dropdown.addEventListener("change", function () {
-      var updatedSliderValue =
-        layout.xaxis.tickvals[parseInt(dropdown.value)] * 100;
+      var updatedSliderValue = layout.xaxis.tickvals[parseInt(dropdown.value)];
 
       slider.value = updatedSliderValue + "";
       sliderValue.textContent = updatedSliderValue / 100 + "";
@@ -834,21 +850,58 @@
         <option value={objectivesPositions.indexOf(obj)}>{obj[0]}</option>
       {/each}
     </select>
-    Keep distances <input type="checkbox" id="keepDistances" checked />
+    Enable swapping:
+    <input type="checkbox" id="keepDistances" checked={enableSwapping} />
+    <button hidden={!enableSwapping} id="swapLeft" />
+    <button hidden={!enableSwapping} id="swapRight" />
     <button id="reset">Reset</button>
     <br />
     <span id="sliderValue" hidden>{movableObjectives[0][1]}</span>
   </div>
   <div style="position: relative;">
-    <input type="range" id="slider" min="0" max="100" value={initSliderValue} />
+    <input
+      hidden={enableSwapping}
+      type="range"
+      id="slider"
+      min="0"
+      max="1"
+      value={initSliderValue}
+      step="any"
+    />
     <div id="SCOREBands" />
   </div>
 </div>
 
 <style>
+  #swapLeft {
+    /* position: absolute; */
+    /* top: 25px;
+    z-index: 1; */
+    width: 0;
+    height: 0;
+    /* left: 30%; */
+    margin-left: 40px;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-right: 20px solid black;
+  }
+
+  #swapRight {
+    /* position: absolute; */
+    /* top: 25px;
+    z-index: 1; */
+    width: 0;
+    height: 0;
+    /* left: 40%; */
+    margin-left: 50px;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 20px solid black;
+  }
+
   #slider {
     position: absolute;
-    top: 84px;
+    top: 35px;
     z-index: 1;
   }
 
