@@ -685,10 +685,60 @@
     });
 
     /**
+     * Recursively finds the first suitable position for the repositioned axis
+     * if the axis is moved within 5% distance of another axis.
+     *
+     * @param origTickVals
+     * @param selectedAxisIndex
+     * @param selectedAxisNewPos
+     * @param left If true, axis should be moved to the left side, otherwise to
+     *   the right side
+     */
+    function checkOverlap(
+      origTickVals: number[],
+      selectedAxisIndex: number,
+      selectedAxisNewPos: number,
+      left: boolean
+    ) {
+      for (let i = 0; i < origTickVals.length; i++) {
+        if (i === selectedAxisIndex) continue;
+
+        const axisPos = origTickVals[i];
+
+        const dist = parseFloat(
+          Math.abs(selectedAxisNewPos - axisPos).toFixed(2)
+        );
+
+        if (dist < 0.05) {
+          if ((left || i === origTickVals.length - 1) && i !== 0) {
+            selectedAxisNewPos = axisPos - 0.05;
+
+            selectedAxisNewPos = checkOverlap(
+              origTickVals,
+              selectedAxisIndex,
+              selectedAxisNewPos,
+              true
+            );
+          } else {
+            selectedAxisNewPos = axisPos + 0.05;
+
+            selectedAxisNewPos = checkOverlap(
+              origTickVals,
+              selectedAxisIndex,
+              selectedAxisNewPos,
+              false
+            );
+          }
+          break;
+        }
+      }
+
+      return selectedAxisNewPos;
+    }
+
+    /**
      * Updates datatraces and axis position when axis is repositioned with the
-     * slider. Performs axis swap if axis is moved within 5% distance of another
-     * axis or over. When the "Keep distances" is checked, only performs the
-     * axis swap with same conditions.
+     * slider.
      */
     slider.addEventListener("mouseup", function () {
       let updatedTraces;
@@ -699,25 +749,35 @@
       let selectedAxisNewPos = parseFloat(this.value);
 
       for (let i = 0; i < origTickVals.length; i++) {
-        let axisPos = origTickVals[i];
+        if (i === selectedAxisIndex) continue;
 
-        if (origTickVals.indexOf(axisPos) === selectedAxisIndex) continue;
+        const axisPos = origTickVals[i];
 
-        let dist = selectedAxisNewPos - axisPos;
+        const left = selectedAxisNewPos < axisPos;
+        const dist = parseFloat(
+          Math.abs(selectedAxisNewPos - axisPos).toFixed(2)
+        );
 
-        if (i === 0 && dist <= 0.05) {
-          selectedAxisNewPos = 0.05;
-          break;
-        }
-        if (i === origTickVals.length - 1 && dist > -0.05) {
-          selectedAxisNewPos = 0.95;
-        }
+        if (dist < 0.05) {
+          if ((left || i === origTickVals.length - 1) && i !== 0) {
+            selectedAxisNewPos = axisPos - 0.05;
 
-        if (dist > -0.05 && dist < 0) {
-          selectedAxisNewPos = axisPos - 0.05;
-          break;
-        } else if (dist < 0.05 && dist > 0) {
-          selectedAxisNewPos = axisPos + 0.05;
+            selectedAxisNewPos = checkOverlap(
+              origTickVals,
+              selectedAxisIndex,
+              selectedAxisNewPos,
+              true
+            );
+          } else {
+            selectedAxisNewPos = axisPos + 0.05;
+
+            selectedAxisNewPos = checkOverlap(
+              origTickVals,
+              selectedAxisIndex,
+              selectedAxisNewPos,
+              false
+            );
+          }
           break;
         }
       }
@@ -757,6 +817,7 @@
         const newPosIndex = newTickVals.indexOf(selectedAxisNewPos);
 
         updatedTraces = data.map((trace) => {
+          // Reposition the axis label
           if (trace.mode === "text" && Array.isArray(trace.text)) {
             const labelToMove = trace.text[selectedAxisIndex];
             trace.text.splice(selectedAxisIndex, 1);
