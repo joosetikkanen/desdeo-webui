@@ -18,8 +18,8 @@
   const datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
   // Hexadecimal value in range of 00-FF
-  let solutionOpacity = "50";
-  let bandOpacity = "aa";
+  const solutionOpacity = "ff";
+  const bandOpacity = "aa";
 
   // Amount of evenly spaced numbers visible on each axis
   const steps = 6;
@@ -165,7 +165,7 @@
 
     let data: Partial<PlotData>[] = [];
 
-    for (let clusterId in groupedData) {
+    for (const clusterId in groupedData) {
       let solutionCount = groupedData[clusterId].length;
 
       // Lower bound of the band
@@ -275,6 +275,10 @@
         text: axisValueLabels[obj[0]],
         textposition: "middle left",
         textfont: { size: 9 },
+        marker: {
+          opacity: 0.2,
+          size: 5,
+        },
         type: "scatter",
         line: {
           color: "black",
@@ -285,13 +289,16 @@
 
     // The initial layout
     let layout: Partial<Layout> = {
-      paper_bgcolor: "rgb(255,255,255)",
-      plot_bgcolor: "rgb(229,229,229)",
+      /* paper_bgcolor: "rgb(255,255,255)",
+      plot_bgcolor: "rgb(229,229,229)", */
+      paper_bgcolor: "rgb(232 234 241)",
+      plot_bgcolor: "rgb(232 234 241)",
       xaxis: {
-        gridcolor: "rgb(255,255,255)",
+        //gridcolor: "rgb(255,255,255)",
         range: [-0.1, 1.1],
         //showgrid: true,
         //showline: false,
+        gridcolor: "rgb(232 234 241)",
         showticklabels: false,
         tickcolor: "rgb(127,127,127)",
         ticks: "",
@@ -312,9 +319,9 @@
       },
       dragmode: "select",
       margin: {
-        l: 15,
-        b: 15,
-        t: 50,
+        l: 0,
+        b: 0,
+        t: 40,
         r: 0,
       },
 
@@ -443,14 +450,17 @@
      */
     plot.on("plotly_selected", function (eventData) {
       const indices = [];
-      let updatedLineColors = [];
+      const updatedLineColors = [];
 
       for (let i = 0; i < data.length; i++) {
-        let line = data[i].line;
-        if (line && line.color && data[i].name.startsWith("Solutions")) {
+        const line = data[i].line;
+        const name = data[i].name;
+        if (line && line.color && name && name.startsWith("Solutions")) {
+          const clusterId = parseInt(name.charAt(name.length - 1));
           indices.push(i);
           updatedLineColors.push(
-            line.color.toString().slice(0, -2) + solutionOpacity
+            //line.color.toString().slice(0, -2) + solutionOpacity
+            colorPalette[clusterId] + solutionOpacity
           );
         }
       }
@@ -503,16 +513,30 @@
         );
 
         const updatedLineColors = selectedLineColors.map(
-          (point) => point.data.line.color.slice(0, -2) + "ff"
-          //() => "red"
+          //(point) => point.data.line.color.slice(0, -2) + "ff"
+          () => "black"
         );
 
         // Highlight selected traces
         Plotly.restyle(
           "SCOREBands",
-          { "line.color": updatedLineColors },
+          {
+            "line.color": updatedLineColors,
+            selected: {
+              marker: { color: "black", opacity: 1 },
+              textfont: { color: "black" },
+            },
+            unselected: {
+              marker: {},
+              textfont: { color: "black" },
+            },
+          },
           selectedIndices
         );
+
+        /* Plotly.restyle("SCOREBands", {
+          ,
+        }); */
       }
       //removeDragElements();
     });
