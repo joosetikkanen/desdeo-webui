@@ -517,6 +517,43 @@
       //removeDragElements();
     });
 
+    /**
+     * Update the slider position and selected objective in the dropdown menu.
+     * Does not allow selecting the outermost axes.
+     */
+    function selectAxis(i: number) {
+      if (i === 0 || i >= objectivesPositions.length - 1) return;
+      slider.value = objectivesPositions[i][1] + "";
+      dropdown.value = i + "";
+
+      // TODO: Firefox does not update the slider as desired. Feasible workaround for this issue is still yet to be found.
+      if (navigator.userAgent.indexOf("Firefox") !== -1) {
+        /* var plotRect = document.querySelector(
+          "#SCOREBands > div > div > svg:nth-child(1) > g.cartesianlayer > g > g.gridlayer"
+        );
+
+        const rectPosition = plotRect.getBoundingClientRect();
+
+        jQuery("#slider").remove();
+        jQuery("#plotContainer").prepend(
+          jQuery("<input/>", {
+            type: "range",
+            id: "slider",
+            hidden: enableSwapping,
+            value: objectivesPositions[i][1] * 100,
+            min: 0,
+            max: 100,
+            //step: "any",
+            class: "slider",
+            style: `width: ${rectPosition.width}px; left: ${rectPosition.left}px; position: absolute; top: 35px; z-index: 1;`,
+          })
+        );
+        setTimeout(function () {
+          jQuery("#slider").attr("value", objectivesPositions[i][1] * 100);
+        }, 100);*/
+      }
+    }
+
     /** Select axis by clicking the axis label */
     plot.on("plotly_click", function (eventData) {
       const objId = eventData.points[0].id;
@@ -524,8 +561,7 @@
         const labelIndex = eventData.points[0].pointIndex;
 
         if (labelIndex > 0 && labelIndex < objectivesPositions.length - 1) {
-          slider.value = objectivesPositions[labelIndex][1] + "";
-          dropdown.value = labelIndex + "";
+          selectAxis(labelIndex);
         }
       }
     });
@@ -618,12 +654,9 @@
         newTickVals[refAxisIndex] <= 0.05 ||
         newTickVals[refAxisIndex] >= 0.95
       ) {
-        slider.value = newTickVals[selectedAxisIndex] + "";
-        sliderValue.textContent = newTickVals[selectedAxisIndex] + "";
+        selectAxis(selectedAxisIndex);
       } else {
-        slider.value = newTickVals[refAxisIndex] + "";
-        sliderValue.textContent = newTickVals[refAxisIndex] + "";
-        dropdown.value = refAxisIndex + "";
+        selectAxis(refAxisIndex);
       }
 
       let updatedLayout = { ...layout };
@@ -659,10 +692,7 @@
       [data, layout, objectivesPositions] = parseData(datasets[datasetKey]);
       movableObjectives = objectivesPositions.slice(1, -1);
       Plotly.react("SCOREBands", data, layout);
-      sliderValue.textContent = movableObjectives[0][1] + "";
-      dropdown.value = 1 + "";
-      initSliderValue = layout.xaxis.tickvals[1];
-      slider.value = initSliderValue + "";
+      selectAxis(1);
 
       plotRect = document.querySelector(
         "#SCOREBands > div > div > svg:nth-child(1) > g.cartesianlayer > g > g.gridlayer"
@@ -682,10 +712,10 @@
       reinitialize(this.value);
     });
 
-    var axisOrigPos: number;
+    /* var axisOrigPos: number;
     slider.addEventListener("mousedown", function () {
       axisOrigPos = layout.xaxis.tickvals[parseInt(dropdown.value)];
-    });
+    }); */
 
     slider.addEventListener("input", function () {
       //removeSelectBox();
@@ -696,7 +726,7 @@
       );
 
       Plotly.react("SCOREBands", newData, newLayout); */
-      sliderValue.textContent = parseInt(slider.value) / 100 + "";
+      sliderValue.textContent = parseFloat(slider.value) + "";
     });
 
     /**
@@ -805,46 +835,43 @@
       let newTickVals: number[] = [...origTickVals];
 
       // Handle the repositioning of selected axis
-      if (keepDistances.checked) {
-        slider.value = axisOrigPos + "";
-        return;
-      } else {
-        newTickVals[selectedAxisIndex] = selectedAxisNewPos;
-        newTickVals.sort((a, b) => a - b);
-        const newPosIndex = newTickVals.indexOf(selectedAxisNewPos);
 
-        updatedTraces = data.map((trace) => {
-          // Reposition the axis label
-          if (trace.mode === "text" && Array.isArray(trace.text)) {
-            const labelToMove = trace.text[selectedAxisIndex];
-            trace.text.splice(selectedAxisIndex, 1);
-            trace.text.splice(newPosIndex, 0, labelToMove);
+      newTickVals[selectedAxisIndex] = selectedAxisNewPos;
+      newTickVals.sort((a, b) => a - b);
+      const newPosIndex = newTickVals.indexOf(selectedAxisNewPos);
+
+      updatedTraces = data.map((trace) => {
+        // Reposition the axis label
+        if (trace.mode === "text" && Array.isArray(trace.text)) {
+          const labelToMove = trace.text[selectedAxisIndex];
+          trace.text.splice(selectedAxisIndex, 1);
+          trace.text.splice(newPosIndex, 0, labelToMove);
+        }
+        if (trace.name && trace.name.startsWith("Objective axis")) {
+          // Reposition the axis
+          if (trace.name.endsWith(selectedAxisLabel)) {
+            trace.x = axisValueHeights.map(() => selectedAxisNewPos);
+            return trace;
+          } else {
+            // Leave other axes as is
+            return trace;
           }
-          if (trace.name && trace.name.startsWith("Objective axis")) {
-            // Reposition the axis
-            if (trace.name.endsWith(selectedAxisLabel)) {
-              trace.x = axisValueHeights.map(() => selectedAxisNewPos);
-              return trace;
-            } else {
-              // Leave other axes as is
-              return trace;
-            }
-          }
+        }
 
-          // Reposition data traces
-          const valueToMove = trace.y[selectedAxisIndex];
-          trace.y.splice(selectedAxisIndex, 1);
-          trace.y.splice(newPosIndex, 0, valueToMove);
+        // Reposition data traces
+        const valueToMove = trace.y[selectedAxisIndex];
+        trace.y.splice(selectedAxisIndex, 1);
+        trace.y.splice(newPosIndex, 0, valueToMove);
 
-          trace.x = newTickVals;
-          return trace;
-        });
+        trace.x = newTickVals;
+        return trace;
+      });
 
-        objectivesPositions[selectedAxisIndex][1] = selectedAxisNewPos;
-        objectivesPositions = objectivesPositions.sort((a, b) => a[1] - b[1]);
-        movableObjectives = objectivesPositions.slice(1, -1);
-        dropdown.value = newPosIndex + "";
-      }
+      objectivesPositions[selectedAxisIndex][1] = selectedAxisNewPos;
+      objectivesPositions = objectivesPositions.sort((a, b) => a[1] - b[1]);
+      movableObjectives = objectivesPositions.slice(1, -1);
+
+      selectAxis(newPosIndex);
 
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
@@ -857,10 +884,7 @@
     });
 
     dropdown.addEventListener("change", function () {
-      var updatedSliderValue = layout.xaxis.tickvals[parseInt(dropdown.value)];
-
-      slider.value = updatedSliderValue + "";
-      sliderValue.textContent = updatedSliderValue / 100 + "";
+      selectAxis(parseInt(this.value));
     });
 
     /**
@@ -916,7 +940,7 @@
     <br />
     <span id="sliderValue" hidden>{movableObjectives[0][1]}</span>
   </div>
-  <div style="position: relative;">
+  <div id="plotContainer" style="position: relative;">
     <input
       hidden={enableSwapping}
       type="range"
@@ -925,6 +949,7 @@
       max="1"
       value={initSliderValue}
       step="any"
+      class="slider"
     />
     <div id="SCOREBands" />
   </div>
@@ -957,7 +982,7 @@
     border-left: 20px solid black;
   }
 
-  #slider {
+  .slider {
     position: absolute;
     top: 35px;
     z-index: 1;
