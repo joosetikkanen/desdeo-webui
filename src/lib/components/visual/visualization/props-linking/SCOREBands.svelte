@@ -259,6 +259,8 @@
       textfont: { size: 10 },
       showlegend: false,
       text: axisLabels,
+      ids: axisLabels.map((label) => `objective label ${label}`),
+      name: "Objective",
       textposition: "top center",
       type: "scatter",
     });
@@ -272,7 +274,7 @@
         name: "Objective axis " + obj[0],
         text: axisValueLabels[obj[0]],
         textposition: "middle left",
-        textfont: { size: 10 },
+        textfont: { size: 9 },
         type: "scatter",
         line: {
           color: "black",
@@ -513,6 +515,19 @@
         );
       }
       //removeDragElements();
+    });
+
+    /** Select axis by clicking the axis label */
+    plot.on("plotly_click", function (eventData) {
+      const objId = eventData.points[0].id;
+      if (objId && objId.startsWith("objective label")) {
+        const labelIndex = eventData.points[0].pointIndex;
+
+        if (labelIndex > 0 && labelIndex < objectivesPositions.length - 1) {
+          slider.value = objectivesPositions[labelIndex][1] + "";
+          dropdown.value = labelIndex + "";
+        }
+      }
     });
 
     var slider = document.getElementById("slider") as HTMLInputElement;
@@ -786,24 +801,6 @@
       this.value = selectedAxisNewPos + "";
 
       this.dispatchEvent(new Event("change", { bubbles: true }));
-
-      /* // Determine which direction the axis was moved
-      if (axisOrigPos - axisNewPos > 0) {
-        // Left
-        //refAxisIndex = selectedAxisIndex - 1;
-        //resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] + 0.05;
-        //resetPos = origTickVals[refAxisIndex] + 0.05;
-        //swap = axisNewPos <= origTickVals[refAxisIndex] + 0.05 && axisNewPos > origTickVals[refAxisIndex] - 0.05;
-      } else {
-        // Right
-        //refAxisIndex = selectedAxisIndex + 1;
-
-        // resetPos = keepDistances.checked ? axisOrigPos : origTickVals[refAxisIndex] - 0.05;
-        //resetPos = origTickVals[refAxisIndex] - 0.05;
-        //swap = axisNewPos >= origTickVals[refAxisIndex] - 0.05 && axisNewPos < origTickVals[refAxisIndex] + 0.05;
-      }
-      /* refAxisLabel = objectivesPositions[refAxisIndex][0];
-      refAxisPosition = objectivesPositions[refAxisIndex][1]; */
 
       let newTickVals: number[] = [...origTickVals];
 
