@@ -38,7 +38,17 @@
   /** State variable for keeping outermost axes static */
   var movableObjectives = objectivesPositions.slice(1, -1);
 
-  var initSliderValue = layout.xaxis.tickvals[1];
+  let sliderValue = layout.xaxis.tickvals[1];
+
+  /**
+   * Two-way binding to ensure that both the variable and the input slider stay
+   * synchronized.
+   *
+   * @param event
+   */
+  function handleChange(event) {
+    sliderValue = event.target.value;
+  }
 
   var enableSwapping: boolean;
 
@@ -544,38 +554,25 @@
     /**
      * Update the slider position and selected objective in the dropdown menu.
      * Does not allow selecting the outermost axes.
+     *
+     * @param i The axis index
      */
     function selectAxis(i: number) {
       if (i === 0 || i >= objectivesPositions.length - 1) return;
-      slider.value = objectivesPositions[i][1] + "";
-      dropdown.value = i + "";
 
-      // TODO: Firefox does not update the slider as desired. Feasible workaround for this issue is still yet to be found.
-      if (navigator.userAgent.indexOf("Firefox") !== -1) {
-        /* var plotRect = document.querySelector(
-          "#SCOREBands > div > div > svg:nth-child(1) > g.cartesianlayer > g > g.gridlayer"
-        );
+      // Workaround to ensure that Svelte rerenders the slider after it has been moved and all possible calculations
+      // regarding the new slider position have been done, so the user input does not take priority,
+      // e.g. when the axis is moved too close to another axis,
+      setTimeout(() => {
+        sliderValue = objectivesPositions[i][1] + "";
+        dropdown.value = i + "";
+      }, 1);
 
-        const rectPosition = plotRect.getBoundingClientRect();
-
-        jQuery("#slider").remove();
-        jQuery("#plotContainer").prepend(
-          jQuery("<input/>", {
-            type: "range",
-            id: "slider",
-            hidden: enableSwapping,
-            value: objectivesPositions[i][1] * 100,
-            min: 0,
-            max: 100,
-            //step: "any",
-            class: "slider",
-            style: `width: ${rectPosition.width}px; left: ${rectPosition.left}px; position: absolute; top: 35px; z-index: 1;`,
-          })
-        );
-        setTimeout(function () {
-          jQuery("#slider").attr("value", objectivesPositions[i][1] * 100);
-        }, 100);*/
-      }
+      /* if (navigator.userAgent.indexOf("Firefox") !== -1) {
+        setTimeout(() => {
+          sliderValue = objectivesPositions[i][1] + "";
+        }, 1);
+      } */
     }
 
     /** Select axis by clicking the axis label */
@@ -591,7 +588,7 @@
     });
 
     var slider = document.getElementById("slider") as HTMLInputElement;
-    var sliderValue = document.getElementById("sliderValue") as HTMLSpanElement;
+    //var sliderValue = document.getElementById("sliderValue") as HTMLSpanElement;
     var dropdown = document.getElementById("dropdown") as HTMLSelectElement;
     var keepDistances = document.getElementById(
       "keepDistances"
@@ -617,18 +614,28 @@
       swapAxes(refAxisIndex);
     });
 
+    /**
+     * Swaps the positions of the selected axis with the given axis. Works only
+     * for swapping with an axis adjacent to the selected axis.
+     *
+     * @param refAxisIndex Index of the axis to perform the swap with. Has to be
+     *   adjacent to the selected axis.
+     */
     function swapAxes(refAxisIndex: number) {
-      let axisOrigPos = layout.xaxis.tickvals[parseInt(dropdown.value)];
-      let refAxisPosition = objectivesPositions[refAxisIndex][1];
-      let refAxisLabel = objectivesPositions[refAxisIndex][0];
-      let selectedAxisIndex = parseInt(dropdown.value);
-      let selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
-      let newTickVals = [...layout.xaxis.tickvals];
+      const axisOrigPos = layout.xaxis.tickvals[parseInt(dropdown.value)];
+
+      const refAxisPosition = objectivesPositions[refAxisIndex][1];
+      const refAxisLabel = objectivesPositions[refAxisIndex][0];
+
+      const selectedAxisIndex = parseInt(dropdown.value);
+      const selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
+
+      const newTickVals = [...layout.xaxis.tickvals];
       newTickVals[selectedAxisIndex] = axisOrigPos;
 
-      let updatedTraces = data.map((trace) => {
+      const updatedTraces = data.map((trace) => {
+        // Swap objective labels
         if (trace.mode === "text" && Array.isArray(trace.text)) {
-          // Swap objective labels
           [trace.text[selectedAxisIndex], trace.text[refAxisIndex]] = [
             trace.text[refAxisIndex],
             trace.text[selectedAxisIndex],
@@ -650,20 +657,18 @@
           return trace;
         }
 
-        // Swap data trace positions
+        // Swap bands, solutions and medians positions
         [trace.y[selectedAxisIndex], trace.y[refAxisIndex]] = [
           trace.y[refAxisIndex],
           trace.y[selectedAxisIndex],
         ];
-        /* let temp = trace.y[selectedAxisIndex];
-        trace.y[selectedAxisIndex] = trace.y[refAxisIndex];
-        trace.y[refAxisIndex] = temp; */
+
         trace.x = newTickVals;
-        //[trace.x[selectedAxisIndex], trace.x[refAxisIndex]] = [trace.x[refAxisIndex], trace.x[selectedAxisIndex]]
+
         return trace;
       });
 
-      // Swap objectives/positions and update corresponding state variables
+      // Update state variables accordingly
       [
         objectivesPositions[selectedAxisIndex][0],
         objectivesPositions[refAxisIndex][0],
@@ -683,9 +688,9 @@
         selectAxis(refAxisIndex);
       }
 
+      // Rerender the changes
       let updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
-
       Plotly.react("SCOREBands", updatedTraces, updatedLayout);
 
       // Refresh the plot state variables
@@ -710,7 +715,7 @@
     /**
      * Reinitializes the plot with the given dataset
      *
-     * @param datasetKey Key to the dataset
+     * @param datasetKey
      */
     function reinitialize(datasetKey: string) {
       [data, layout, objectivesPositions] = parseData(datasets[datasetKey]);
@@ -743,14 +748,13 @@
 
     slider.addEventListener("input", function () {
       //removeSelectBox();
-
       /* var [newData, newLayout] = getUpdatedChartData(
         this.value,
         dropdown.value
       );
 
       Plotly.react("SCOREBands", newData, newLayout); */
-      sliderValue.textContent = parseFloat(slider.value) + "";
+      //sliderValue.textContent = parseFloat(slider.value) + "";
     });
 
     /**
@@ -760,8 +764,8 @@
      * @param origTickVals
      * @param selectedAxisIndex
      * @param selectedAxisNewPos
-     * @param left If true, axis should be moved to the left side, otherwise to
-     *   the right side
+     * @param left If true, axis should be moved to the left, otherwise to the
+     *   right
      */
     function checkOverlap(
       origTickVals: number[],
@@ -810,13 +814,13 @@
      * slider.
      */
     slider.addEventListener("mouseup", function () {
-      let updatedTraces;
-      let origTickVals = [...layout.xaxis.tickvals];
-      let selectedAxisIndex: number = parseInt(dropdown.value);
-      let selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
+      const origTickVals = [...layout.xaxis.tickvals];
+      const selectedAxisIndex = parseInt(dropdown.value);
+      const selectedAxisLabel = objectivesPositions[selectedAxisIndex][0];
 
       let selectedAxisNewPos = parseFloat(this.value);
 
+      // Check if the axis is repositioned too close to another axis and calculate a new position if it is
       for (let i = 0; i < origTickVals.length; i++) {
         if (i === selectedAxisIndex) continue;
 
@@ -851,20 +855,15 @@
         }
       }
 
-      this.setAttribute("value", selectedAxisNewPos + "");
-      this.value = selectedAxisNewPos + "";
+      const newTickVals: number[] = [...origTickVals];
 
-      this.dispatchEvent(new Event("change", { bubbles: true }));
-
-      let newTickVals: number[] = [...origTickVals];
-
-      // Handle the repositioning of selected axis
-
+      // Calculate the new order and positions of axes
       newTickVals[selectedAxisIndex] = selectedAxisNewPos;
       newTickVals.sort((a, b) => a - b);
       const newPosIndex = newTickVals.indexOf(selectedAxisNewPos);
 
-      updatedTraces = data.map((trace) => {
+      // Update all data traces according to the new layout of axes
+      const updatedTraces = data.map((trace) => {
         // Reposition the axis label
         if (trace.mode === "text" && Array.isArray(trace.text)) {
           const labelToMove = trace.text[selectedAxisIndex];
@@ -872,7 +871,7 @@
           trace.text.splice(newPosIndex, 0, labelToMove);
         }
         if (trace.name && trace.name.startsWith("Objective axis")) {
-          // Reposition the axis
+          // Reposition the selected axis
           if (trace.name.endsWith(selectedAxisLabel)) {
             trace.x = axisValueHeights.map(() => selectedAxisNewPos);
             return trace;
@@ -882,7 +881,7 @@
           }
         }
 
-        // Reposition data traces
+        // Reposition bands, solutions and medians
         const valueToMove = trace.y[selectedAxisIndex];
         trace.y.splice(selectedAxisIndex, 1);
         trace.y.splice(newPosIndex, 0, valueToMove);
@@ -891,15 +890,17 @@
         return trace;
       });
 
+      // Update state variables
       objectivesPositions[selectedAxisIndex][1] = selectedAxisNewPos;
       objectivesPositions = objectivesPositions.sort((a, b) => a[1] - b[1]);
       movableObjectives = objectivesPositions.slice(1, -1);
 
+      // Update the slider and the selected objective if needed (i.e. when axis is moved too close or over another axis)
       selectAxis(newPosIndex);
 
-      let updatedLayout = { ...layout };
+      // Rerender all changes
+      const updatedLayout = { ...layout };
       updatedLayout.xaxis.tickvals = newTickVals;
-
       Plotly.react("SCOREBands", updatedTraces, updatedLayout);
 
       // Refresh the plot state variables
@@ -962,7 +963,7 @@
     <button hidden={!enableSwapping} id="swapRight" />
     <button id="reset">Reset</button>
     <br />
-    <span id="sliderValue" hidden>{movableObjectives[0][1]}</span>
+    <!-- <span id="sliderValue" hidden>{movableObjectives[0][1]}</span> -->
   </div>
   <div id="plotContainer" style="position: relative;">
     <input
@@ -971,9 +972,10 @@
       id="slider"
       min="0"
       max="1"
-      value={initSliderValue}
+      value={sliderValue}
       step="any"
       class="slider"
+      on:change={handleChange}
     />
     <div id="SCOREBands" />
   </div>
