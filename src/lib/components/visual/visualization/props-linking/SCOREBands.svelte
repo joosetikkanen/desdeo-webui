@@ -13,7 +13,6 @@
     PlotData,
     PlotlyHTMLElement,
   } from "plotly.js";
-  import _ from "lodash";
 
   const datasets: Record<string, JSON> = { dtlz7: dtlz7, AD1: AD1, AD2: AD2 };
 
@@ -40,6 +39,8 @@
 
   let sliderValue = layout.xaxis.tickvals[1];
 
+  var enableSwapping: boolean;
+
   /**
    * Two-way binding to ensure that both the variable and the input slider stay
    * synchronized.
@@ -50,7 +51,31 @@
     sliderValue = event.target.value;
   }
 
-  var enableSwapping: boolean;
+  /**
+   * Scale a value between a minimum and maximum value using linear
+   * interpolation.
+   *
+   * @param value
+   * @param minInput
+   * @param maxInput
+   * @param minOutput
+   * @param maxOutput
+   */
+  function scaleValue(
+    value: number,
+    minInput: number,
+    maxInput: number,
+    minOutput: number,
+    maxOutput: number
+  ): number {
+    // Ensure the value is within the input range
+    value = Math.min(Math.max(value, minInput), maxInput);
+
+    return (
+      minOutput +
+      (maxOutput - minOutput) * ((value - minInput) / (maxInput - minInput))
+    );
+  }
 
   /**
    * Parses the solutions, bands and objective axis positions given in JSON
@@ -64,11 +89,12 @@
     json
   ): [Partial<PlotData>[], Partial<Layout>, [string, number][]] {
     // Deep cloning of the solution data is required for preserving the original values after scaling them to the range of 0 to 1.
-    const jsonData = _.cloneDeep(json.data);
+    //const jsonData = _.cloneDeep(json.data);
+    const jsonData = [...json.data];
 
-    let jsonBands = { ...json.bands };
+    const jsonBands = { ...json.bands };
 
-    let objectivesPositions: [string, number][] = Object.entries(
+    const objectivesPositions: [string, number][] = Object.entries(
       json.positions
     );
 
@@ -118,10 +144,9 @@
       );
     });
 
-    const scaledData = [...jsonData];
-
     // Scale each field in each object to the range of 0 to 1
-    for (const obj of scaledData) {
+    /* const scaledData = [...jsonData];
+     for (const obj of scaledData) {
       for (const key of Object.keys(obj)) {
         if (key === "group") {
           continue;
@@ -161,10 +186,10 @@
             (maxValues[objKey] - minValues[objKey]);
         }
       }
-    }
+    } */
 
     // Group the data by the cluster key
-    const groupedData = scaledData.reduce((acc, obj) => {
+    const groupedData = jsonData.reduce((acc, obj) => {
       const groupKey = obj.group;
       if (!acc[groupKey]) {
         acc[groupKey] = [];
@@ -176,13 +201,26 @@
     let data: Partial<PlotData>[] = [];
 
     for (const clusterId in groupedData) {
-      let solutionCount = groupedData[clusterId].length;
+      const solutionCount = groupedData[clusterId].length;
 
       // Lower bound of the band
       data.push({
         x: axisPositions,
         y: axisLabels.map((label) => {
-          return jsonBands[clusterId].lower_bound[label];
+          //let value = jsonBands[clusterId].lower_bound[label];
+          /* let minInput = parseFloat(axisValueLabels[label][0]);
+          let maxInput = parseFloat(
+            axisValueLabels[label][axisValueLabels[label].length - 1]
+          ); */
+          //console.log(minValues[label], minInput, maxValues[label], maxInput);
+          return scaleValue(
+            jsonBands[clusterId].lower_bound[label],
+            minValues[label],
+            maxValues[label],
+            0,
+            1
+          );
+          //return jsonBands[clusterId].lower_bound[label];
         }),
         line: {
           color: colorPalette[clusterId] + "ff",
@@ -201,7 +239,21 @@
       data.push({
         x: axisPositions,
         y: axisLabels.map((label) => {
-          return jsonBands[clusterId].upper_bound[label];
+          /* let value = jsonBands[clusterId].upper_bound[label];
+          let minInput = parseFloat(axisValueLabels[label][0]);
+          let maxInput = parseFloat(
+            axisValueLabels[label][axisValueLabels[label].length - 1]
+          );
+
+          return scaleValue(value, minInput, maxInput, 0, 1); */
+          //return jsonBands[clusterId].upper_bound[label];
+          return scaleValue(
+            jsonBands[clusterId].upper_bound[label],
+            minValues[label],
+            maxValues[label],
+            0,
+            1
+          );
         }),
         fill: "tonexty",
         fillcolor: colorPalette[clusterId] + bandOpacity,
@@ -220,11 +272,35 @@
 
       let showLegend = true;
       // Individual solutions
+      //console.log(axisValueLabels, axisLabels);
       for (let solution of groupedData[clusterId]) {
+        /* const hoverValues = axisLabels.map((label) => {
+          let minOutput = parseFloat(axisValueLabels[label][0]);
+          let maxOutput = parseFloat(
+            axisValueLabels[label][axisValueLabels[label].length - 1]
+          );
+          let value = solution[label];
+          return scaleValue(value, 0, 1, minOutput, maxOutput).toString();
+        }); */
+
+        //console.log(hoverValues);
         data.push({
           x: axisPositions,
           y: axisLabels.map((label) => {
-            return solution[label];
+            /* let value = solution[label];
+            let minInput = parseFloat(axisValueLabels[label][0]);
+            let maxInput = parseFloat(
+              axisValueLabels[label][axisValueLabels[label].length - 1]
+            );
+            return scaleValue(value, minInput, maxInput, 0, 1); */
+            //return solution[label];
+            return scaleValue(
+              solution[label],
+              minValues[label],
+              maxValues[label],
+              0,
+              1
+            );
           }),
           line: {
             color: colorPalette[clusterId] + solutionOpacity,
@@ -235,16 +311,40 @@
           showlegend: showLegend,
           type: "scatter",
           visible: "legendonly",
-          hoverinfo: "none",
+          hovertext: axisLabels.map((label) => solution[label]),
+          hoverinfo: "text",
+          //hoverinfo: "x+y",
         });
         showLegend = false;
       }
+
+      /* const hoverValues = axisLabels.map((label) => {
+        let minOutput = parseFloat(axisValueLabels[label][0]);
+        let maxOutput = parseFloat(
+          axisValueLabels[label][axisValueLabels[label].length - 1]
+        );
+        let value = jsonBands[clusterId].median[label];
+        return scaleValue(value, 0, 1, minOutput, maxOutput).toFixed(2);
+      }); */
 
       // Median
       data.push({
         x: axisPositions,
         y: axisLabels.map((label) => {
-          return jsonBands[clusterId].median[label];
+          /* let value = jsonBands[clusterId].median[label];
+          let minInput = parseFloat(axisValueLabels[label][0]);
+          let maxInput = parseFloat(
+            axisValueLabels[label][axisValueLabels[label].length - 1]
+          );
+          return scaleValue(value, minInput, maxInput, 0, 1); */
+          //return jsonBands[clusterId].median[label];
+          return scaleValue(
+            jsonBands[clusterId].median[label],
+            minValues[label],
+            maxValues[label],
+            0,
+            1
+          );
         }),
         line: {
           color: colorPalette[clusterId] + "ff",
@@ -261,7 +361,10 @@
         showlegend: true,
         type: "scatter",
         visible: "legendonly",
-        hoverinfo: "none",
+        hovertext: axisLabels.map(
+          (label) => jsonBands[clusterId].median[label]
+        ),
+        hoverinfo: "text",
       });
     }
 
@@ -299,7 +402,7 @@
           color: "black",
         },
         showlegend: false,
-        hoverinfo: "none",
+        hoverinfo: "skip",
       });
     }
 
@@ -591,6 +694,17 @@
           selectAxis(labelIndex);
         }
       }
+
+      const name = eventData.points[0].data.name;
+      if (name && name.startsWith("Solutions")) {
+        Plotly.restyle(
+          "SCOREBands",
+          {
+            "line.color": "black",
+          },
+          eventData.points[0].curveNumber
+        );
+      }
     });
 
     var slider = document.getElementById("slider") as HTMLInputElement;
@@ -661,6 +775,12 @@
           }
           // Leave other axes as is
           return trace;
+        }
+
+        // Swap hover text values
+        if (trace.hovertext && Array.isArray(trace.hovertext)) {
+          [trace.hovertext[selectedAxisIndex], trace.hovertext[refAxisIndex]] =
+            [trace.hovertext[refAxisIndex], trace.hovertext[selectedAxisIndex]];
         }
 
         // Swap bands, solutions and medians positions
@@ -885,6 +1005,13 @@
             // Leave other axes as is
             return trace;
           }
+        }
+
+        // Rearrange trace hover text values
+        if (trace.hovertext && Array.isArray(trace.hovertext)) {
+          const valueToMove = trace.hovertext[selectedAxisIndex];
+          trace.hovertext.splice(selectedAxisIndex, 1);
+          trace.hovertext.splice(newPosIndex, 0, valueToMove);
         }
 
         // Reposition bands, solutions and medians
