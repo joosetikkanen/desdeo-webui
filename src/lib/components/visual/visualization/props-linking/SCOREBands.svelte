@@ -194,6 +194,7 @@
         name: "50% band: Cluster " + clusterId,
         showlegend: false,
         type: "scatter",
+        hoverinfo: "none",
       });
 
       // Upper bound of the band
@@ -214,9 +215,10 @@
         name: `50% band: Cluster ${clusterId}; ${solutionCount} Solutions`,
         showlegend: true,
         type: "scatter",
+        hoverinfo: "none",
       });
 
-      let legend = true;
+      let showLegend = true;
       // Individual solutions
       for (let solution of groupedData[clusterId]) {
         data.push({
@@ -230,11 +232,12 @@
           legendgroup: "Solutions: Cluster " + clusterId,
           mode: "lines+markers",
           name: "Solutions: Cluster " + clusterId,
-          showlegend: legend,
+          showlegend: showLegend,
           type: "scatter",
           visible: "legendonly",
+          hoverinfo: "none",
         });
-        legend = false;
+        showLegend = false;
       }
 
       // Median
@@ -258,6 +261,7 @@
         showlegend: true,
         type: "scatter",
         visible: "legendonly",
+        hoverinfo: "none",
       });
     }
 
@@ -273,6 +277,7 @@
       name: "Objective",
       textposition: "top center",
       type: "scatter",
+      hoverinfo: "text",
     });
 
     // Objective axes
@@ -294,6 +299,7 @@
           color: "black",
         },
         showlegend: false,
+        hoverinfo: "none",
       });
     }
 
